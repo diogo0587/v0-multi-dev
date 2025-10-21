@@ -9,11 +9,18 @@ interface GeneratedFile {
   language: string
 }
 
+interface Activity {
+  agent: string
+  action: string
+  timestamp: Date
+}
+
 interface ChatContextType {
   messages: AgentMessage[]
   tasks: Task[]
   isProcessing: boolean
   generatedFiles: GeneratedFile[]
+  activities: Activity[]
   addMessage: (message: Omit<AgentMessage, "id" | "timestamp">) => void
   addTask: (task: Omit<Task, "id" | "createdAt" | "updatedAt">) => Promise<void>
   updateTaskStatus: (taskId: string, status: Task["status"]) => void
@@ -26,6 +33,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([])
+  const [activities, setActivities] = useState<Activity[]>([])
 
   const addMessage = (message: Omit<AgentMessage, "id" | "timestamp">) => {
     const newMessage: AgentMessage = {
@@ -34,6 +42,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       timestamp: new Date(),
     }
     setMessages((prev) => [...prev, newMessage])
+
+    setActivities((prev) => [
+      ...prev,
+      {
+        agent: message.agentRole,
+        action: message.content,
+        timestamp: new Date(),
+      },
+    ])
   }
 
   const determineAgentRole = (description: string): AgentRole => {
@@ -76,65 +93,86 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     addMessage({
       agentId: "orchestrator-001",
       agentRole: "orchestrator",
-      content: `🤖 Nova tarefa recebida: "${task.title}". Iniciando execução automática...`,
+      content: `🎯 Orquestrador: Analisando tarefa "${task.title}" e coordenando equipe de agentes...`,
       type: "info",
-    })
-
-    const assignedRole = determineAgentRole(task.description)
-
-    setTasks((prev) =>
-      prev.map((t) => (t.id === newTask.id ? { ...t, assignedTo: assignedRole, status: "in-progress" } : t)),
-    )
-
-    addMessage({
-      agentId: "orchestrator-001",
-      agentRole: "orchestrator",
-      content: `📋 Tarefa atribuída ao agente: ${assignedRole}. Gerando código...`,
-      type: "success",
     })
 
     try {
       const apiKey = localStorage.getItem("gemini_api_key")
-      const model = localStorage.getItem("ai_model") || "gemini-2.0-flash-exp"
 
-      const response = await fetch("/api/agent/generate", {
+      const response = await fetch("/api/agent/orchestrate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          taskDescription: task.description,
-          agentRole: assignedRole,
+          task: task.description,
           apiKey: apiKey || undefined,
-          model,
         }),
       })
 
       const data = await response.json()
 
-      if (data.success && data.files) {
-        setGeneratedFiles((prev) => [...prev, ...data.files])
+      if (data.success) {
+        if (data.steps && Array.isArray(data.steps)) {
+          for (const step of data.steps) {
+            const agentEmoji =
+              step.agent === "Orquestrador"
+                ? "🎯"
+                : step.agent === "Analista de Requisitos"
+                  ? "📋"
+                  : step.agent === "Dev Frontend"
+                    ? "🎨"
+                    : step.agent === "Dev Backend"
+                      ? "⚙️"
+                      : "🤖"
 
-        addMessage({
-          agentId: `${assignedRole}-001`,
-          agentRole: assignedRole,
-          content: `✅ ${data.files.length} arquivo(s) gerado(s) com sucesso!${data.usedGemini ? " (usando Gemini API)" : ""}\n\n${data.description}\n\nArquivos:\n${data.files.map((f: GeneratedFile) => `- ${f.path}`).join("\n")}`,
-          type: "success",
-        })
+            addMessage({
+              agentId: `${step.agent}-001`,
+              agentRole: "orchestrator",
+              content: `${agentEmoji} ${step.agent}: ${step.summary || "Trabalho concluído"}`,
+              type: "info",
+            })
+          }
+        }
 
-        setTasks((prev) =>
-          prev.map((t) =>
-            t.id === newTask.id ? { ...t, status: "completed", result: `${data.files.length} arquivos gerados` } : t,
-          ),
-        )
+        if (data.files && data.files.length > 0) {
+          setGeneratedFiles((prev) => [...prev, ...data.files])
+
+          addMessage({
+            agentId: "orchestrator-001",
+            agentRole: "orchestrator",
+            content: `✅ Equipe concluiu o trabalho! ${data.files.length} arquivo(s) gerado(s):\n${data.files.map((f: GeneratedFile) => `- ${f.path}`).join("\n")}\n\n💡 Use os botões abaixo para copiar ou baixar os arquivos.`,
+            type: "success",
+          })
+
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === newTask.id
+                ? { ...t, status: "completed", result: `${data.files.length} arquivos gerados pela equipe` }
+                : t,
+            ),
+          )
+        } else {
+          addMessage({
+            agentId: "orchestrator-001",
+            agentRole: "orchestrator",
+            content: `✅ ${data.message || "Análise concluída pela equipe!"}`,
+            type: "success",
+          })
+
+          setTasks((prev) =>
+            prev.map((t) => (t.id === newTask.id ? { ...t, status: "completed", result: "Análise concluída" } : t)),
+          )
+        }
       } else {
-        throw new Error(data.error || "Failed to generate files")
+        throw new Error(data.error || "Failed to orchestrate agents")
       }
     } catch (error) {
-      console.error("[v0] Error generating files:", error)
+      console.error("[v0] Error in orchestration:", error)
 
       addMessage({
-        agentId: `${assignedRole}-001`,
-        agentRole: assignedRole,
-        content: `❌ Erro ao gerar arquivos: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+        agentId: "orchestrator-001",
+        agentRole: "orchestrator",
+        content: `❌ Erro na orquestração: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
         type: "error",
       })
 
@@ -150,7 +188,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   return (
     <ChatContext.Provider
-      value={{ messages, tasks, isProcessing, generatedFiles, addMessage, addTask, updateTaskStatus }}
+      value={{
+        messages,
+        tasks,
+        isProcessing,
+        generatedFiles,
+        activities,
+        addMessage,
+        addTask,
+        updateTaskStatus,
+      }}
     >
       {children}
     </ChatContext.Provider>

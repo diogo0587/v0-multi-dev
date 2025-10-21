@@ -8,6 +8,33 @@ interface GeneratedFile {
   language: string
 }
 
+function inferLanguage(filePath: string): string {
+  const ext = filePath.split(".").pop()?.toLowerCase()
+  const languageMap: Record<string, string> = {
+    ts: "typescript",
+    tsx: "typescript",
+    js: "javascript",
+    jsx: "javascript",
+    py: "python",
+    css: "css",
+    html: "html",
+    json: "json",
+    md: "markdown",
+  }
+  return languageMap[ext || ""] || "plaintext"
+}
+
+function normalizeFiles(data: any): GeneratedFile[] {
+  // Handle both "files" and "arquivos" keys
+  const rawFiles = data.files || data.arquivos || []
+
+  return rawFiles.map((file: any) => ({
+    path: file.path || file.nome || file.name || "untitled.txt",
+    content: file.content || file.conteudo || file.code || "",
+    language: file.language || file.linguagem || inferLanguage(file.path || file.nome || file.name || ""),
+  }))
+}
+
 const agentPrompts: Record<AgentRole, string> = {
   orchestrator: `Você é o Orquestrador Principal. Analise a tarefa e distribua para os agentes apropriados.`,
 
@@ -22,16 +49,28 @@ Gere código COMPLETO e FUNCIONAL seguindo as melhores práticas:
 - Inclua imports corretos
 - Código deve estar pronto para uso
 
-IMPORTANTE: Retorne APENAS um JSON válido no formato:
+IMPORTANTE: Retorne APENAS um JSON válido EXATAMENTE neste formato (sem texto adicional):
 {
   "files": [
     {
-      "path": "caminho/do/arquivo.tsx",
+      "path": "components/exemplo.tsx",
       "content": "código completo aqui",
       "language": "typescript"
     }
   ],
   "description": "descrição do que foi criado"
+}
+
+EXEMPLO DE RESPOSTA VÁLIDA:
+{
+  "files": [
+    {
+      "path": "components/button.tsx",
+      "content": "import React from 'react'\\n\\nexport function Button() {\\n  return <button>Click me</button>\\n}",
+      "language": "typescript"
+    }
+  ],
+  "description": "Componente de botão criado"
 }`,
 
   "backend-dev": `Você é um Dev Backend especialista em Next.js API Routes e Server Actions.
@@ -42,11 +81,11 @@ Gere código COMPLETO e FUNCIONAL:
 - Trate erros adequadamente
 - Use Next.js 14+ patterns
 
-IMPORTANTE: Retorne APENAS um JSON válido no formato:
+IMPORTANTE: Retorne APENAS um JSON válido EXATAMENTE neste formato (sem texto adicional):
 {
   "files": [
     {
-      "path": "caminho/do/arquivo.ts",
+      "path": "app/api/exemplo/route.ts",
       "content": "código completo aqui",
       "language": "typescript"
     }
@@ -54,7 +93,19 @@ IMPORTANTE: Retorne APENAS um JSON válido no formato:
   "description": "descrição do que foi criado"
 }`,
 
-  devops: `Você é um DevOps especialista. Crie configurações e workflows completos.`,
+  devops: `Você é um DevOps especialista. Crie configurações e workflows completos.
+  
+IMPORTANTE: Retorne APENAS um JSON válido EXATAMENTE neste formato (sem texto adicional):
+{
+  "files": [
+    {
+      "path": ".github/workflows/deploy.yml",
+      "content": "código completo aqui",
+      "language": "yaml"
+    }
+  ],
+  "description": "descrição do que foi criado"
+}`,
 }
 
 export async function POST(request: Request) {
@@ -80,7 +131,7 @@ export async function POST(request: Request) {
                   role: "user",
                   parts: [
                     {
-                      text: `${systemPrompt}\n\nTarefa: ${taskDescription}\n\nGere o código COMPLETO e FUNCIONAL para esta tarefa. Retorne um JSON válido com os arquivos gerados. Não inclua explicações fora do JSON.`,
+                      text: `${systemPrompt}\n\nTarefa: ${taskDescription}\n\nGere o código COMPLETO e FUNCIONAL para esta tarefa. Retorne APENAS um JSON válido com os arquivos gerados. Não inclua explicações, markdown ou texto fora do JSON.`,
                     },
                   ],
                 },
@@ -102,31 +153,40 @@ export async function POST(request: Request) {
 
         console.log("[v0] Gemini Response:", text)
 
-        let jsonMatch = text.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) {
-          jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/)
-          if (jsonMatch) {
-            jsonMatch[0] = jsonMatch[1]
-          }
+        let jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/)
+        if (jsonMatch) {
+          jsonMatch[0] = jsonMatch[1]
+        } else {
+          jsonMatch = text.match(/\{[\s\S]*\}/)
         }
 
         if (!jsonMatch) {
           return NextResponse.json(
             {
-              error: "Failed to parse AI response",
-              rawResponse: text,
+              error: "Failed to parse AI response - no JSON found",
+              rawResponse: text.substring(0, 500),
             },
             { status: 500 },
           )
         }
 
         const result = JSON.parse(jsonMatch[0])
-        const files: GeneratedFile[] = result.files || []
+        const files: GeneratedFile[] = normalizeFiles(result)
+
+        if (files.length === 0) {
+          return NextResponse.json(
+            {
+              error: "No files generated",
+              rawResponse: text.substring(0, 500),
+            },
+            { status: 500 },
+          )
+        }
 
         return NextResponse.json({
           success: true,
           files,
-          description: result.description || "Arquivos gerados com sucesso",
+          description: result.description || result.descricao || "Arquivos gerados com sucesso",
           agentRole,
           usedGemini: true,
         })
@@ -142,40 +202,48 @@ export async function POST(request: Request) {
       prompt: `Tarefa: ${taskDescription}
 
 Gere o código COMPLETO e FUNCIONAL para esta tarefa. 
-Retorne um JSON válido com os arquivos gerados.
-Não inclua explicações fora do JSON.`,
+Retorne APENAS um JSON válido com os arquivos gerados.
+Não inclua explicações, markdown ou texto fora do JSON.`,
       temperature: 0.7,
       maxTokens: 4000,
     })
 
     console.log("[v0] AI Response:", text)
 
-    let jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      // Tentar encontrar JSON em blocos de código
-      jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/)
-      if (jsonMatch) {
-        jsonMatch[0] = jsonMatch[1]
-      }
+    let jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/)
+    if (jsonMatch) {
+      jsonMatch[0] = jsonMatch[1]
+    } else {
+      jsonMatch = text.match(/\{[\s\S]*\}/)
     }
 
     if (!jsonMatch) {
       return NextResponse.json(
         {
-          error: "Failed to parse AI response",
-          rawResponse: text,
+          error: "Failed to parse AI response - no JSON found",
+          rawResponse: text.substring(0, 500),
         },
         { status: 500 },
       )
     }
 
     const result = JSON.parse(jsonMatch[0])
-    const files: GeneratedFile[] = result.files || []
+    const files: GeneratedFile[] = normalizeFiles(result)
+
+    if (files.length === 0) {
+      return NextResponse.json(
+        {
+          error: "No files generated",
+          rawResponse: text.substring(0, 500),
+        },
+        { status: 500 },
+      )
+    }
 
     return NextResponse.json({
       success: true,
       files,
-      description: result.description || "Arquivos gerados com sucesso",
+      description: result.description || result.descricao || "Arquivos gerados com sucesso",
       agentRole,
     })
   } catch (error) {

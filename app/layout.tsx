@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { SettingsProvider } from "@/lib/context/settings-context"
+import { ChatProvider } from "@/lib/context/chat-context"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
@@ -23,7 +24,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`font-sans antialiased`}>
         <SettingsProvider>
-          {children}
+          <ChatProvider>{children}</ChatProvider>
           <Toaster />
         </SettingsProvider>
       </body>

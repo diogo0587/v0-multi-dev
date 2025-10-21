@@ -9,6 +9,7 @@ import { AdminLink } from "@/components/admin-link"
 import { ChatProvider } from "@/lib/context/chat-context"
 import { useAgentSystem } from "@/lib/hooks/use-agent-system"
 import { Users, CheckCircle2, Clock, AlertCircle } from "lucide-react"
+import { MaintenancePanel } from "@/components/maintenance-panel"
 
 export default function DashboardPage() {
   const { agents } = useAgentSystem()
@@ -85,6 +86,9 @@ export default function DashboardPage() {
             {/* Logs Panel */}
             <LogsPanel />
           </div>
+
+          {/* Maintenance Panel */}
+          <MaintenancePanel />
 
           {/* Agents Grid */}
           <div className="space-y-4">

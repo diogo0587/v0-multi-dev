@@ -7,9 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Code, Play, Key, CheckCircle2, XCircle, ArrowLeft } from "lucide-react"
+import { Settings, Code, Play, Key, CheckCircle2, XCircle, ArrowLeft, ExternalLink } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useSettings } from "@/lib/context/settings-context"
+import { useChat } from "@/lib/context/chat-context"
+import { GeneratedFilesViewer } from "@/components/generated-files-viewer"
+import { AppPreview } from "@/components/app-preview"
 import Link from "next/link"
 
 export default function AdminPage() {
@@ -17,6 +20,7 @@ export default function AdminPage() {
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null)
   const { toast } = useToast()
   const { apiKey, setApiKey, clearApiKey, model, setModel, temperature, setTemperature } = useSettings()
+  const { generatedFiles, activities } = useChat()
 
   useEffect(() => {
     if (apiKey) {
@@ -251,16 +255,30 @@ export default function AdminPage() {
           <TabsContent value="preview">
             <Card>
               <CardHeader>
-                <CardTitle>Preview da Aplicação</CardTitle>
-                <CardDescription>Visualize a aplicação gerada pelos agentes</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Preview da Aplicação</span>
+                  {generatedFiles.length > 0 && (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/preview" target="_blank">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Abrir em Nova Aba
+                      </Link>
+                    </Button>
+                  )}
+                </CardTitle>
+                <CardDescription>Visualize e execute a aplicação gerada pelos agentes</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-lg border bg-muted/50 p-8 text-center">
-                  <Play className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-muted-foreground">
-                    Nenhuma aplicação gerada ainda. Atribua uma tarefa aos agentes para começar.
-                  </p>
-                </div>
+                {generatedFiles.length > 0 ? (
+                  <AppPreview files={generatedFiles} />
+                ) : (
+                  <div className="rounded-lg border bg-muted/50 p-8 text-center">
+                    <Play className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">
+                      Nenhuma aplicação gerada ainda. Atribua uma tarefa aos agentes para começar.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -272,10 +290,14 @@ export default function AdminPage() {
                 <CardDescription>Visualize e gerencie os arquivos criados pelos agentes</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-lg border bg-muted/50 p-8 text-center">
-                  <Code className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-muted-foreground">Nenhum arquivo gerado ainda</p>
-                </div>
+                {generatedFiles.length > 0 ? (
+                  <GeneratedFilesViewer files={generatedFiles} />
+                ) : (
+                  <div className="rounded-lg border bg-muted/50 p-8 text-center">
+                    <Code className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Nenhum arquivo gerado ainda</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -287,10 +309,26 @@ export default function AdminPage() {
                 <CardDescription>Acompanhe as atividades dos agentes em tempo real</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-lg border bg-muted/50 p-8 text-center">
-                  <Key className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-muted-foreground">Nenhum log disponível</p>
-                </div>
+                {activities.length > 0 ? (
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    {activities.map((activity, index) => (
+                      <div key={index} className="rounded-lg border bg-card p-3 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium">{activity.agent}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(activity.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground">{activity.action}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-muted/50 p-8 text-center">
+                    <Key className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Nenhum log disponível</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
