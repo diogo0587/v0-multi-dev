@@ -58,7 +58,12 @@ export function TaskList() {
                 .slice()
                 .reverse()
                 .map((task) => {
-                  const StatusIcon = statusConfig[task.status].icon
+                  const status = task.status || "pending"
+                  const priority = task.priority || "medium"
+                  const statusInfo = statusConfig[status] || statusConfig.pending
+                  const priorityInfo = priorityConfig[priority] || priorityConfig.medium
+                  const StatusIcon = statusInfo.icon
+
                   return (
                     <div
                       key={task.id}
@@ -66,15 +71,15 @@ export function TaskList() {
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <h4 className="font-semibold text-foreground">{task.title}</h4>
-                        <Badge className={cn("text-xs", statusConfig[task.status].className)}>
+                        <Badge className={cn("text-xs", statusInfo.className)}>
                           <StatusIcon className="mr-1 h-3 w-3" />
-                          {statusConfig[task.status].label}
+                          {statusInfo.label}
                         </Badge>
                       </div>
                       <p className="mb-3 text-sm text-muted-foreground">{task.description}</p>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={cn("text-xs", priorityConfig[task.priority].className)}>
-                          {priorityConfig[task.priority].label}
+                        <Badge variant="outline" className={cn("text-xs", priorityInfo.className)}>
+                          {priorityInfo.label}
                         </Badge>
                         {task.assignedTo && (
                           <Badge variant="outline" className="text-xs">

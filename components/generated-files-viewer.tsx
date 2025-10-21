@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Check, Copy, Download, FileCode } from "lucide-react"
+import { Check, Copy, Download, FileCode, Sparkles } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface GeneratedFile {
   path: string
@@ -18,6 +19,7 @@ interface GeneratedFilesViewerProps {
 
 export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewerProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const copyToClipboard = async (content: string, path: string) => {
     await navigator.clipboard.writeText(content)
@@ -43,21 +45,36 @@ export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewe
     })
   }
 
+  const showApplyInstructions = () => {
+    toast({
+      title: "Como aplicar os arquivos",
+      description:
+        "Digite no chat: 'Aplique os arquivos gerados ao projeto' e os arquivos serão criados automaticamente.",
+      duration: 5000,
+    })
+  }
+
   if (files.length === 0) {
     return null
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="font-semibold text-lg">Arquivos Gerados</h3>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
-        <Button onClick={downloadAll} variant="outline" size="sm">
-          <Download className="h-4 w-4 mr-2" />
-          Baixar Todos
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={showApplyInstructions} variant="default" size="sm">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Aplicar ao Projeto
+          </Button>
+          <Button onClick={downloadAll} variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Baixar Todos
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -81,7 +98,7 @@ export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewe
                 </Button>
               </div>
             </div>
-            <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs">
+            <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs max-h-[300px]">
               <code>{file.content}</code>
             </pre>
           </Card>

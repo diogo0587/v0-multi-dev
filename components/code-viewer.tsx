@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Copy, Check, Download } from "lucide-react"
+import { Copy, Check, Download, Sparkles } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface GeneratedFile {
   path: string
@@ -18,6 +19,7 @@ interface CodeViewerProps {
 
 export function CodeViewer({ files }: CodeViewerProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const copyToClipboard = async (content: string, path: string) => {
     await navigator.clipboard.writeText(content)
@@ -43,6 +45,15 @@ export function CodeViewer({ files }: CodeViewerProps) {
     })
   }
 
+  const showApplyInstructions = () => {
+    toast({
+      title: "Como aplicar os arquivos",
+      description:
+        "Digite no chat: 'Aplique os arquivos gerados ao projeto' e os arquivos serão criados automaticamente.",
+      duration: 5000,
+    })
+  }
+
   if (files.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -53,12 +64,18 @@ export function CodeViewer({ files }: CodeViewerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold">{files.length} arquivo(s) gerado(s)</h3>
-        <Button onClick={downloadAll} variant="outline" size="sm">
-          <Download className="h-4 w-4 mr-2" />
-          Baixar Todos
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={showApplyInstructions} variant="default" size="sm">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Aplicar ao Projeto
+          </Button>
+          <Button onClick={downloadAll} variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Baixar Todos
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue={files[0]?.path} className="w-full">
@@ -101,7 +118,7 @@ export function CodeViewer({ files }: CodeViewerProps) {
                 </div>
               </div>
               <div className="p-4 bg-background">
-                <pre className="text-xs overflow-x-auto">
+                <pre className="text-xs overflow-x-auto max-h-[500px] overflow-y-auto">
                   <code>{file.content}</code>
                 </pre>
               </div>
