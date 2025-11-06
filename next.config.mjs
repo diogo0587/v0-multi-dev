@@ -10,8 +10,7 @@ const nextConfig = {
     unoptimized: true,
   },
   compress: true,
-  poweredByHeader: false,
-  swcMinify: true,
+  poweredByHeader: false
 }
 
 export default nextConfig

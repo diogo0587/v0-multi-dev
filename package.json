@@ -13,7 +13,9 @@
     "type-check": "tsc --noEmit",
     "playwright:test": "playwright test",
     "test:e2e": "start-server-and-test dev http://localhost:3000 playwright:test",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prebuild": "prisma generate",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@auth/prisma-adapter": "latest",
