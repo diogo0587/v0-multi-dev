@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import type { AgentMessage, Task, AgentRole } from "@/lib/types/agent"
 
 interface GeneratedFile {
@@ -34,6 +34,63 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
+
+  // Persistência simples no localStorage
+  useEffect(() => {
+    try {
+      const m = localStorage.getItem("chat_messages")
+      const t = localStorage.getItem("chat_tasks")
+      const f = localStorage.getItem("chat_files")
+      const a = localStorage.getItem("chat_activities")
+      if (m) {
+        const parsed = JSON.parse(m) as AgentMessage[]
+        setMessages(parsed.map((msg) => ({ ...msg, timestamp: new Date(msg.timestamp) })))
+      }
+      if (t) {
+        const parsed = JSON.parse(t) as Task[]
+        setTasks(
+          parsed.map((task) => ({
+            ...task,
+            createdAt: new Date(task.createdAt),
+            updatedAt: new Date(task.updatedAt),
+          })),
+        )
+      }
+      if (f) {
+        setGeneratedFiles(JSON.parse(f) as GeneratedFile[])
+      }
+      if (a) {
+        const parsed = JSON.parse(a) as Activity[]
+        setActivities(parsed.map((act) => ({ ...act, timestamp: new Date(act.timestamp) })))
+      }
+    } catch {
+      // ignora erros de parse
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("chat_messages", JSON.stringify(messages))
+    } catch {}
+  }, [messages])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("chat_tasks", JSON.stringify(tasks))
+    } catch {}
+  }, [tasks])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("chat_files", JSON.stringify(generatedFiles))
+    } catch {}
+  }, [generatedFiles])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("chat_activities", JSON.stringify(activities))
+    } catch {}
+  }, [activities])
 
   const addMessage = (message: Omit<AgentMessage, "id" | "timestamp">) => {
     const newMessage: AgentMessage = {
@@ -99,6 +156,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     try {
       const apiKey = localStorage.getItem("gemini_api_key")
+      const model = localStorage.getItem("ai_model") || "gemini-2.0-flash-exp"
+      const temperature = Number.parseFloat(localStorage.getItem("ai_temperature") || "0.7")
 
       const response = await fetch("/api/agent/orchestrate", {
         method: "POST",
@@ -106,6 +165,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           task: task.description,
           apiKey: apiKey || undefined,
+          model,
+          temperature,
         }),
       })
 
