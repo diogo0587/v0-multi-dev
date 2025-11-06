@@ -10,6 +10,23 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Prisma migrations (deploy)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
       - name: Trigger Vercel Deploy Hook
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
@@ -17,4 +34,4 @@ jobs:
           if [ -z "$HOOK" ]; then
             echo "VERCEL_DEPLOY_HOOK_URL não configurada nos secrets"; exit 1;
           fi
-          curl -X POST -H "Content-Type: application/json" -d '{"message":"CI: push -> deploy"}' "$HOOK"
+          curl -X POST -H "Content-Type: application/json" -d '{"message":"CI: push -> migrate -> deploy"}' "$HOOK"

@@ -11,6 +11,23 @@ jobs:
       contains(toJson(github.event.pull_request.labels), 'ai-generated')
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Prisma migrations (deploy)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
       - name: Trigger Vercel Deploy Hook after merge
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
@@ -23,5 +40,5 @@ jobs:
             exit 1
           fi
           MSG=$(jq -n --arg n "$PR_NUMBER" --arg t "$PR_TITLE" --arg u "$PR_URL" \
-            '{message: ("CI: PR #"+$n+" (ai-generated) mergeado -> deploy | "+$t+" | "+$u)}')
+            '{message: ("CI: PR #"+$n+" (ai-generated) mergeado -> migrate -> deploy | "+$t+" | "+$u)}')
           curl -X POST -H "Content-Type: application/json" -d "$MSG" "$HOOK"
