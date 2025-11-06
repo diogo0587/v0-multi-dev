@@ -68,6 +68,18 @@ async function listFiles(root: string, dir = ""): Promise<string[]> {
   return files
 }
 
+async function getFileSha(repo: string, token: string, pathName: string, branch: string) {
+  const url = `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(pathName)}?ref=${encodeURIComponent(
+    branch,
+  )}`
+  try {
+    const data: any = await githubRequest("GET", url, token)
+    return data.sha as string
+  } catch {
+    return undefined
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const token = getEnv("GITHUB_TOKEN")
@@ -81,18 +93,45 @@ export async function POST(request: Request) {
       )
     }
 
-    const { message, branchName } = (await request.json().catch(() => ({}))) as {
+    const { message, branchName, direct } = (await request.json().catch(() => ({}))) as {
       message?: string
       branchName?: string
+      direct?: boolean
+    }
+
+    const root = process.cwd()
+    const files = await listFiles(root)
+
+    if (direct) {
+      // Commit direto em baseBranch (um commit por arquivo via contents API)
+      for (const relPath of files) {
+        const abs = path.join(root, relPath)
+        const buf = await fs.readFile(abs)
+        const contentB64 = buf.toString("base64")
+        const existingSha = await getFileSha(repo, token, relPath, baseBranch).catch(() => undefined)
+        const url = `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(
+          relPath,
+        )}?ref=${encodeURIComponent(baseBranch)}`
+        await githubRequest("PUT", url, token, {
+          message: (message || "chore(ai): snapshot do repositório (direto)") + ` - ${relPath}`,
+          content: contentB64,
+          branch: baseBranch,
+          sha: existingSha,
+        })
+      }
+      return NextResponse.json({
+        success: true,
+        mode: "direct",
+        branch: baseBranch,
+        message: `Snapshot aplicado diretamente em ${baseBranch} (${files.length} arquivo(s))`,
+        url: `https://github.com/${repo}/tree/${encodeURIComponent(baseBranch)}`,
+      })
     }
 
     const branch = branchName || `ai/snapshot-${Date.now()}`
     await ensureBranch(repo, token, baseBranch, branch)
 
-    const root = process.cwd()
-    const files = await listFiles(root)
-
-    // Commit cada arquivo via contents API
+    // Commit cada arquivo via contents API na branch de snapshot
     for (const relPath of files) {
       const abs = path.join(root, relPath)
       const buf = await fs.readFile(abs)
@@ -125,7 +164,7 @@ export async function POST(request: Request) {
       // ignore
     }
 
-    return NextResponse.json({ success: true, prUrl: pr.html_url as string, branch, prNumber: pr.number })
+    return NextResponse.json({ success: true, prUrl: pr.html_url as string, branch, prNumber: pr.number, mode: "pr" })
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Falha ao criar snapshot no GitHub" },

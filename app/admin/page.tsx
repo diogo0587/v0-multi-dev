@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null)
   const [isDeploying, setIsDeploying] = useState(false)
   const [isCommitting, setIsCommitting] = useState(false)
+  const [isCommittingDirect, setIsCommittingDirect] = useState(false)
   const { status } = useSession()
   const isAuthed = status === "authenticated"
   const { toast } = useToast()
@@ -152,6 +153,32 @@ export default function AdminPage() {
       })
     } finally {
       setIsCommitting(false)
+    }
+  }
+
+  const handleCommitSnapshotDirect = async () => {
+    try {
+      setIsCommittingDirect(true)
+      const res = await fetch("/api/github/snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "chore(ai): snapshot do repositório (direto)", direct: true }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || "Falha ao aplicar snapshot direto")
+      toast({
+        title: "Snapshot direto aplicado",
+        description: data.message || "Arquivos enviados para a branch principal",
+      })
+      if (data.url) window.open(data.url, "_blank")
+    } catch (e) {
+      toast({
+        title: "Erro no snapshot direto",
+        description: e instanceof Error ? e.message : "Tente novamente",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCommittingDirect(false)
     }
   }
 
@@ -338,6 +365,15 @@ export default function AdminPage() {
                       <Button variant="secondary" size="sm" onClick={handleCommitSnapshot} disabled={isCommitting}>
                         <Rocket className={`h-4 w-4 mr-2 ${isCommitting ? "animate-pulse" : ""}`} />
                         {isCommitting ? "Commit..." : "Commit no GitHub"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCommitSnapshotDirect}
+                        disabled={isCommittingDirect}
+                      >
+                        <Rocket className={`h-4 w-4 mr-2 ${isCommittingDirect ? "animate-pulse" : ""}`} />
+                        {isCommittingDirect ? "Snapshot..." : "Snapshot Direto"}
                       </Button>
                     </div>
                   </CardTitle>
