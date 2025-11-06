@@ -1,0 +1,43 @@
+name: Deploy Now (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Optional deploy message
+        required: false
+        default: "CI: manual deploy"
+
+jobs:
+  deploy_now:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Prisma migrations (deploy)
+        env:
+          DATABASE_URL: ${{ secrets.PRISMA_DATABASE_URL || secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.POSTGRES_URL || secrets.DIRECT_URL || secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Trigger Vercel Deploy Hook
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+          MSG: ${{ github.event.inputs.message }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL não configurada nos secrets"
+            exit 1
+          fi
+          BODY=$(jq -n --arg m "${MSG:-CI: manual deploy}" '{message: $m}')
+          curl -X POST -H "Content-Type: application/json" -d "$BODY" "$HOOK"
