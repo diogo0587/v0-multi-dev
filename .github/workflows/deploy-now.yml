@@ -1,13 +1,15 @@
-name: Deploy (Vercel Hook)
+name: Deploy Now (manual)
 
 on:
-  push:
-    branches:
-      - main
-      - master
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Optional deploy message
+        required: false
+        default: "CI: manual deploy"
 
 jobs:
-  deploy:
+  deploy_now:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,8 +33,11 @@ jobs:
       - name: Trigger Vercel Deploy Hook
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+          MSG: ${{ github.event.inputs.message }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "VERCEL_DEPLOY_HOOK_URL não configurada nos secrets"; exit 1;
+            echo "VERCEL_DEPLOY_HOOK_URL não configurada nos secrets"
+            exit 1
           fi
-          curl -X POST -H "Content-Type: application/json" -d '{"message":"CI: push -> migrate -> deploy"}' "$HOOK"
+          BODY=$(jq -n --arg m "${MSG:-CI: manual deploy}" '{message: $m}')
+          curl -X POST -H "Content-Type: application/json" -d "$BODY" "$HOOK"
