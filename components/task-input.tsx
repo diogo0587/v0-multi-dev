@@ -37,6 +37,15 @@ export function TaskInput() {
       lower.includes("aplicar ao projeto") ||
       lower.includes("aplique ao projeto")
 
+    const isDeployCmd =
+      lower.includes("fazer deploy") ||
+      lower.includes("deploy") ||
+      lower.includes("publicar") ||
+      lower.includes("enviar para produção") ||
+      lower.includes("subir para produção") ||
+      lower.includes("subir") ||
+      lower.includes("deployar")
+
     if (isApplyCmd) {
       if (generatedFiles.length === 0) {
         addMessage({
@@ -93,6 +102,38 @@ export function TaskInput() {
         })
       } finally {
         setIsApplying(false)
+        setTaskDescription("")
+      }
+      return
+    }
+
+    if (isDeployCmd) {
+      try {
+        addMessage({
+          agentId: "orchestrator-001",
+          agentRole: "orchestrator",
+          content: "🚀 Iniciando deploy...",
+          type: "info",
+        })
+        const res = await fetch("/api/deploy", { method: "POST" })
+        const data = await res.json()
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Falha ao acionar deploy")
+        }
+        addMessage({
+          agentId: "orchestrator-001",
+          agentRole: "orchestrator",
+          content: "✅ Deploy acionado com sucesso.",
+          type: "success",
+        })
+      } catch (err) {
+        addMessage({
+          agentId: "orchestrator-001",
+          agentRole: "orchestrator",
+          content: `❌ Erro no deploy: ${err instanceof Error ? err.message : "desconhecido"}`,
+          type: "error",
+        })
+      } finally {
         setTaskDescription("")
       }
       return

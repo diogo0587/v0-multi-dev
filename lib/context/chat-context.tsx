@@ -154,6 +154,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       type: "info",
     })
 
+    const autoMode = (typeof window !== "undefined" && localStorage.getItem("NEXT_PUBLIC_AI_TURBO")) || "0"
+
     try {
       const apiKey = localStorage.getItem("gemini_api_key")
       const model = localStorage.getItem("ai_model") || "gemini-2.0-flash-exp"
@@ -212,6 +214,69 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 : t,
             ),
           )
+
+          // Turbo mode: aplica e deploya automaticamente
+          if (autoMode === "1") {
+            try {
+              addMessage({
+                agentId: "orchestrator-001",
+                agentRole: "orchestrator",
+                content: "⚙️ Modo Turbo ativado: aplicando arquivos automaticamente...",
+                type: "info",
+              })
+              const applyRes = await fetch("/api/apply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ files: data.files, commitMessage: "feat(ai): aplicar arquivos gerados" }),
+              })
+              const applyJson = await applyRes.json()
+              if (!applyRes.ok || !applyJson.success) {
+                throw new Error(applyJson.error || "Falha ao aplicar arquivos")
+              }
+              if (applyJson.mode === "github" && applyJson.prUrl) {
+                addMessage({
+                  agentId: "orchestrator-001",
+                  agentRole: "orchestrator",
+                  content: `✅ PR criado automaticamente: ${applyJson.prUrl}`,
+                  type: "success",
+                })
+              } else {
+                addMessage({
+                  agentId: "orchestrator-001",
+                  agentRole: "orchestrator",
+                  content: "✅ Arquivos aplicados no filesystem (dev)",
+                  type: "success",
+                })
+              }
+
+              addMessage({
+                agentId: "orchestrator-001",
+                agentRole: "orchestrator",
+                content: "🚀 Iniciando deploy automático...",
+                type: "info",
+              })
+              const deployRes = await fetch("/api/deploy", { method: "POST" })
+              const deployJson = await deployRes.json()
+              if (!deployRes.ok || !deployJson.success) {
+                throw new Error(deployJson.error || "Falha ao acionar deploy")
+              }
+              addMessage({
+                agentId: "orchestrator-001",
+                agentRole: "orchestrator",
+                content: "✅ Deploy acionado com sucesso.",
+                type: "success",
+              })
+            } catch (e) {
+              addMessage({
+                agentId: "orchestrator-001",
+                agentRole: "orchestrator",
+                content: `⚠️ Modo Turbo: falha ao aplicar/deployar automaticamente: ${
+                  e instanceof Error ? e.message : "desconhecida"
+                }`,
+                type: "warning",
+              })
+            }
+          }
         } else {
           addMessage({
             agentId: "orchestrator-001",

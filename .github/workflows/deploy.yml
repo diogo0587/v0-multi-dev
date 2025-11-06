@@ -1,0 +1,20 @@
+name: Deploy (Vercel Hook)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL não configurada nos secrets"; exit 1;
+          fi
+          curl -X POST -H "Content-Type: application/json" -d '{"message":"CI: push -> deploy"}' "$HOOK"
