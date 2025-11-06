@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null)
   const [isDeploying, setIsDeploying] = useState(false)
   const [isCommitting, setIsCommitting] = useState(false)
+  const [isCommittingDirect, setIsCommittingDirect] = useState(false)
   const { status } = useSession()
   const isAuthed = status === "authenticated"
   const { toast } = useToast()
@@ -155,6 +156,32 @@ export default function AdminPage() {
     }
   }
 
+  const handleCommitSnapshotDirect = async () => {
+    try {
+      setIsCommittingDirect(true)
+      const res = await fetch("/api/github/snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "chore(ai): snapshot do repositório (direto)", direct: true }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || "Falha ao aplicar snapshot direto")
+      toast({
+        title: "Snapshot direto aplicado",
+        description: data.message || "Arquivos enviados para a branch principal",
+      })
+      if (data.url) window.open(data.url, "_blank")
+    } catch (e) {
+      toast({
+        title: "Erro no snapshot direto",
+        description: e instanceof Error ? e.message : "Tente novamente",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCommittingDirect(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="mx-auto max-w-7xl">
@@ -189,7 +216,7 @@ export default function AdminPage() {
           </Card>
         ) : (
           <Tabs defaultValue="settings" className="space-y-4 md:space-y-6">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1">
               <TabsTrigger value="settings" className="gap-2">
                 <Settings className="h-4 w-4" />
                 Configurações
@@ -205,6 +232,10 @@ export default function AdminPage() {
               <TabsTrigger value="logs" className="gap-2">
                 <Key className="h-4 w-4" />
                 Logs
+              </TabsTrigger>
+              <TabsTrigger value="github" className="gap-2">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.112.82-.26.82-.577 0-.285-.01-1.04-.016-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.744.082-.73.082-.73 1.205.085 1.84 1.237 1.84 1.237 1.07 1.835 2.807 1.305 3.492.998.11-.775.42-1.305.763-1.606-2.665-.303-5.466-1.333-5.466-5.932 0-1.31.468-2.382 1.236-3.222-.124-.303-.536-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.51 11.51 0 0 1 3.003-.404c1.02.005 2.047.138 3.003.404 2.29-1.552 3.297-1.23 3.297-1.23.655 1.653.243 2.873.12 3.176.77.84 1.235 1.912 1.235 3.222 0 4.61-2.805 5.625-5.477 5.922.43.37.815 1.102.815 2.222 0 1.604-.014 2.894-.014 3.286 0 .32.217.694.825.576C20.565 21.8 24 17.3 24 12c0-6.63-5.373-12-12-12z"/></svg>
+                GitHub
               </TabsTrigger>
             </TabsList>
 
@@ -339,6 +370,15 @@ export default function AdminPage() {
                         <Rocket className={`h-4 w-4 mr-2 ${isCommitting ? "animate-pulse" : ""}`} />
                         {isCommitting ? "Commit..." : "Commit no GitHub"}
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCommitSnapshotDirect}
+                        disabled={isCommittingDirect}
+                      >
+                        <Rocket className={`h-4 w-4 mr-2 ${isCommittingDirect ? "animate-pulse" : ""}`} />
+                        {isCommittingDirect ? "Snapshot..." : "Snapshot Direto"}
+                      </Button>
                     </div>
                   </CardTitle>
                   <CardDescription>Visualize e execute a aplicação gerada pelos agentes</CardDescription>
@@ -354,6 +394,50 @@ export default function AdminPage() {
                       </p>
                     </div>
                   )}
+                  <div className="mt-6 space-y-2">
+                    <Label htmlFor="deploy-hook">Vercel Deploy Hook URL (opcional)</Label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input id="deploy-hook" placeholder="https://api.vercel.com/..." className="font-mono" />
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          const input = document.getElementById("deploy-hook") as HTMLInputElement | null
+                          const hookUrl = input?.value?.trim()
+                          if (!hookUrl) {
+                            return toast({
+                              title: "Informe o Hook",
+                              description: "Cole a URL do Vercel Deploy Hook para acionar.",
+                              variant: "destructive",
+                            })
+                          }
+                          try {
+                            setIsDeploying(true)
+                            const res = await fetch("/api/deploy", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ hookUrl }),
+                            })
+                            const data = await res.json()
+                            if (!res.ok || !data.success) throw new Error(data.error || "Falha ao acionar deploy")
+                            toast({ title: "Deploy acionado", description: data.message })
+                          } catch (e) {
+                            toast({
+                              title: "Erro no deploy",
+                              description: e instanceof Error ? e.message : "Tente novamente",
+                              variant: "destructive",
+                            })
+                          } finally {
+                            setIsDeploying(false)
+                          }
+                        }}
+                      >
+                        Usar URL
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Se vazio, o botão Deploy usa a variável de ambiente VERCEL_DEPLOY_HOOK_URL.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -373,6 +457,71 @@ export default function AdminPage() {
                       <p className="mt-4 text-muted-foreground">Nenhum arquivo gerado ainda</p>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="github">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Publicar Review/Comentário no PR</CardTitle>
+                  <CardDescription>Envie rapidamente um comentário ou anexe um review à descrição do PR</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="pr-number">Número do PR (opcional)</Label>
+                      <Input id="pr-number" type="number" placeholder="ex: 42" />
+                      <p className="text-xs text-muted-foreground">Se vazio, o sistema tenta o PR aberto mais recente (prioriza ai/*)</p>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="review-text">Comentário/Review</Label>
+                      <textarea id="review-text" className="w-full min-h-[120px] rounded-md border bg-background p-3 text-sm outline-none" placeholder="Cole aqui seu review..." />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="mode">Modo de Publicação</Label>
+                      <select id="mode" className="h-9 rounded-md border bg-background px-3 text-sm">
+                        <option value="comment">Comentar no PR</option>
+                        <option value="append">Anexar à descrição</option>
+                      </select>
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        const prInput = (document.getElementById("pr-number") as HTMLInputElement | null)
+                        const txtArea = (document.getElementById("review-text") as HTMLTextAreaElement | null)
+                        const modeSel = (document.getElementById("mode") as HTMLSelectElement | null)
+                        const comment = txtArea?.value?.trim() || ""
+                        if (!comment) {
+                          return toast({ title: "Comentário vazio", description: "Digite ou cole um texto para publicar.", variant: "destructive" })
+                        }
+                        try {
+                          const prNumber = prInput?.value ? Number(prInput.value) : undefined
+                          const mode = (modeSel?.value as "comment" | "append") || "comment"
+                          const res = await fetch("/api/github/review", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ comment, prNumber, mode }),
+                          })
+                          const data = await res.json()
+                          if (!res.ok || !data.success) {
+                            throw new Error(data.error || "Falha ao publicar o comentário")
+                          }
+                          toast({ title: "Publicado", description: data.message || "Comentário publicado no PR" })
+                          if (data.url) window.open(data.url, "_blank")
+                        } catch (e) {
+                          toast({
+                            title: "Erro ao publicar",
+                            description: e instanceof Error ? e.message : "Tente novamente",
+                            variant: "destructive",
+                          })
+                        }
+                      }}
+                    >
+                      Publicar
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

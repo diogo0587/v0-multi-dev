@@ -21,6 +21,7 @@ export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewe
   const [copiedFile, setCopiedFile] = useState<string | null>(null)
   const [isApplying, setIsApplying] = useState(false)
   const [isZipping, setIsZipping] = useState(false)
+  const [isCommitting, setIsCommitting] = useState(false)
   const { toast } = useToast()
 
   const copyToClipboard = async (content: string, path: string) => {
@@ -115,6 +116,35 @@ export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewe
     }
   }
 
+  const handleDirectCommit = async () => {
+    if (!files.length || isCommitting) return
+    setIsCommitting(true)
+    try {
+      const res = await fetch("/api/github/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files, message: "feat(ai): commit direto de arquivos gerados" }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Falha ao commitar diretamente")
+      }
+      toast({
+        title: "Commit direto realizado",
+        description: data.message || "Arquivos enviados para a branch principal",
+      })
+      if (data.url) window.open(data.url, "_blank")
+    } catch (e) {
+      toast({
+        title: "Erro no commit direto",
+        description: e instanceof Error ? e.message : "Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCommitting(false)
+    }
+  }
+
   if (files.length === 0) {
     return null
   }
@@ -127,15 +157,19 @@ export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewe
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleApply} variant="default" size="sm" disabled={isApplying || isZipping}>
+          <Button onClick={handleApply} variant="default" size="sm" disabled={isApplying || isZipping || isCommitting}>
             <Sparkles className={`h-4 w-4 mr-2 ${isApplying ? "animate-pulse" : ""}`} />
             {isApplying ? "Aplicando..." : "Aplicar ao Projeto"}
           </Button>
-          <Button onClick={downloadAll} variant="outline" size="sm" disabled={isApplying || isZipping}>
+          <Button onClick={handleDirectCommit} variant="secondary" size="sm" disabled={isApplying || isZipping || isCommitting}>
+            <Sparkles className={`h-4 w-4 mr-2 ${isCommitting ? "animate-pulse" : ""}`} />
+            {isCommitting ? "Commit..." : "Commit Direto"}
+          </Button>
+          <Button onClick={downloadAll} variant="outline" size="sm" disabled={isApplying || isZipping || isCommitting}>
             <Download className="h-4 w-4 mr-2" />
             Baixar Todos
           </Button>
-          <Button onClick={downloadZip} variant="outline" size="sm" disabled={isApplying || isZipping}>
+          <Button onClick={downloadZip} variant="outline" size="sm" disabled={isApplying || isZipping || isCommitting}>
             <Download className={`h-4 w-4 mr-2 ${isZipping ? "animate-pulse" : ""}`} />
             {isZipping ? "Gerando ZIP..." : "Baixar ZIP"}
           </Button>
