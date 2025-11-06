@@ -394,6 +394,50 @@ export default function AdminPage() {
                       </p>
                     </div>
                   )}
+                  <div className="mt-6 space-y-2">
+                    <Label htmlFor="deploy-hook">Vercel Deploy Hook URL (opcional)</Label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input id="deploy-hook" placeholder="https://api.vercel.com/..." className="font-mono" />
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          const input = document.getElementById("deploy-hook") as HTMLInputElement | null
+                          const hookUrl = input?.value?.trim()
+                          if (!hookUrl) {
+                            return toast({
+                              title: "Informe o Hook",
+                              description: "Cole a URL do Vercel Deploy Hook para acionar.",
+                              variant: "destructive",
+                            })
+                          }
+                          try {
+                            setIsDeploying(true)
+                            const res = await fetch("/api/deploy", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ hookUrl }),
+                            })
+                            const data = await res.json()
+                            if (!res.ok || !data.success) throw new Error(data.error || "Falha ao acionar deploy")
+                            toast({ title: "Deploy acionado", description: data.message })
+                          } catch (e) {
+                            toast({
+                              title: "Erro no deploy",
+                              description: e instanceof Error ? e.message : "Tente novamente",
+                              variant: "destructive",
+                            })
+                          } finally {
+                            setIsDeploying(false)
+                          }
+                        }}
+                      >
+                        Usar URL
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Se vazio, o botão Deploy usa a variável de ambiente VERCEL_DEPLOY_HOOK_URL.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
