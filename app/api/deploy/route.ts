@@ -45,3 +45,48 @@ export async function POST(request: Request) {
     )
   }
 }
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const hookUrl = searchParams.get("hookUrl") || searchParams.get("hook")
+    const message = searchParams.get("message") || undefined
+
+    const url = hookUrl || process.env.VERCEL_DEPLOY_HOOK_URL
+
+    if (!url) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Hook de deploy não configurado. Defina VERCEL_DEPLOY_HOOK_URL nas variáveis de ambiente ou informe hookUrl na query ?hookUrl=...",
+        },
+        { status: 400 },
+      )
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message || "Deploy acionado via GET /api/deploy" }),
+    })
+
+    if (!res.ok) {
+      const text = await res.text()
+      return NextResponse.json(
+        { success: false, error: `Falha no hook de deploy: ${res.status} ${res.statusText} - ${text}` },
+        { status: 500 },
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Deploy acionado com sucesso via Vercel Deploy Hook (GET).",
+    })
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Erro ao acionar deploy" },
+      { status: 500 },
+    )
+  }
+}
