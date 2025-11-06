@@ -4,6 +4,8 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { SettingsProvider } from "@/lib/context/settings-context"
 import { ChatProvider } from "@/lib/context/chat-context"
 import { Toaster } from "@/components/ui/toaster"
+import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/components/auth-provider"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -21,12 +23,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="pt-BR">
       <body className={`font-sans antialiased`}>
-        <SettingsProvider>
-          <ChatProvider>{children}</ChatProvider>
-          <Toaster />
-        </SettingsProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          <AuthProvider>
+            <SettingsProvider>
+              <ChatProvider>{children}</ChatProvider>
+              <Toaster />
+            </SettingsProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

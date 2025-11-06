@@ -110,7 +110,13 @@ IMPORTANTE: Retorne APENAS um JSON válido EXATAMENTE neste formato (sem texto a
 
 export async function POST(request: Request) {
   try {
-    const { taskDescription, agentRole, apiKey, model = "gemini-2.0-flash-exp" } = await request.json()
+    const {
+      taskDescription,
+      agentRole,
+      apiKey,
+      model = "gemini-2.0-flash-exp",
+      temperature = 0.7,
+    } = await request.json()
 
     if (!taskDescription || !agentRole) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -137,7 +143,7 @@ export async function POST(request: Request) {
                 },
               ],
               generationConfig: {
-                temperature: 0.7,
+                temperature,
                 maxOutputTokens: 8000,
               },
             }),
@@ -204,7 +210,7 @@ export async function POST(request: Request) {
 Gere o código COMPLETO e FUNCIONAL para esta tarefa. 
 Retorne APENAS um JSON válido com os arquivos gerados.
 Não inclua explicações, markdown ou texto fora do JSON.`,
-      temperature: 0.7,
+      temperature,
       maxTokens: 4000,
     })
 

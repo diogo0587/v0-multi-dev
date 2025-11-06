@@ -7,15 +7,41 @@ interface AgentStep {
   output?: string
 }
 
+async function geminiGenerate({
+  apiKey,
+  model,
+  prompt,
+  temperature = 0.7,
+}: {
+  apiKey: string
+  model: string
+  prompt: string
+  temperature?: number
+}): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature, maxOutputTokens: 8000 },
+    }),
+  })
+  if (!resp.ok) {
+    throw new Error(`Gemini API error: ${resp.status} ${resp.statusText}`)
+  }
+  const data = await resp.json()
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
+  return text
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { task, apiKey } = await req.json()
+    const { task, apiKey, model = "gemini-2.0-flash-exp", temperature = 0.7 } = await req.json()
 
     if (!task) {
       return NextResponse.json({ error: "Task is required" }, { status: 400 })
     }
-
-    const model = "openai/gpt-4o-mini"
 
     const steps: AgentStep[] = []
 
@@ -27,7 +53,7 @@ Tarefa: ${task}
 
 Agentes disponíveis:
 - Analista de Requisitos: Análise detalhada, casos de uso, estrutura de dados
-- Dev Frontend: React, Next.js 14, TypeScript, Tailwind CSS, componentes UI
+- Dev Frontend: React, Next.js, TypeScript, Tailwind CSS, componentes UI
 - Dev Backend: API Routes, Server Actions, validação, integração de dados
 - DevOps: Configuração, deploy, otimização
 
@@ -40,12 +66,18 @@ Responda APENAS com JSON válido (sem markdown):
   "tecnologias": ["Next.js", "React", "TypeScript", "Tailwind"]
 }`
 
-    const orchestratorResult = await generateText({
-      model,
-      prompt: orchestratorPrompt,
-    })
+    let orchestratorText = ""
+    if (apiKey) {
+      orchestratorText = await geminiGenerate({ apiKey, model, prompt: orchestratorPrompt, temperature })
+    } else {
+      const orchestratorResult = await generateText({
+        model: "openai/gpt-4o-mini",
+        prompt: orchestratorPrompt,
+      })
+      orchestratorText = orchestratorResult.text
+    }
 
-    const orchestratorAnalysis = extractJSON(orchestratorResult.text)
+    const orchestratorAnalysis = extractJSON(orchestratorText)
     steps[0].status = "completed"
     steps[0].output = JSON.stringify(orchestratorAnalysis)
 
@@ -66,13 +98,19 @@ Forneça em JSON válido (sem markdown):
   "recomendacoes": ["recomendações técnicas"]
 }`
 
-      const analystResult = await generateText({
-        model,
-        prompt: analystPrompt,
-      })
+      let analystText = ""
+      if (apiKey) {
+        analystText = await geminiGenerate({ apiKey, model, prompt: analystPrompt, temperature })
+      } else {
+        const analystResult = await generateText({
+          model: "openai/gpt-4o-mini",
+          prompt: analystPrompt,
+        })
+        analystText = analystResult.text
+      }
 
       steps[steps.length - 1].status = "completed"
-      steps[steps.length - 1].output = analystResult.text
+      steps[steps.length - 1].output = analystText
     }
 
     if (orchestratorAnalysis.agentes_necessarios?.includes("Dev Frontend")) {
@@ -80,7 +118,7 @@ Forneça em JSON válido (sem markdown):
 
       const requirements = steps.find((s) => s.agent === "Analista de Requisitos")?.output || ""
 
-      const frontendPrompt = `Como Dev Frontend especializado em Next.js 14, crie uma aplicação COMPLETA e FUNCIONAL:
+      const frontendPrompt = `Como Dev Frontend especializado em Next.js, crie uma aplicação COMPLETA e FUNCIONAL:
 
 Tarefa: ${task}
 Tipo: ${orchestratorAnalysis.tipo_projeto || "app-completo"}
@@ -88,7 +126,7 @@ Tipo: ${orchestratorAnalysis.tipo_projeto || "app-completo"}
 ${requirements ? `Requisitos:\n${requirements}\n` : ""}
 
 Crie código PRODUCTION-READY usando:
-- Next.js 14 App Router
+- Next.js App Router
 - TypeScript
 - Tailwind CSS v4
 - React Server Components
@@ -118,13 +156,19 @@ Retorne APENAS JSON válido (sem markdown, sem \`\`\`):
   "features": ["lista de funcionalidades implementadas"]
 }`
 
-      const frontendResult = await generateText({
-        model,
-        prompt: frontendPrompt,
-      })
+      let frontendText = ""
+      if (apiKey) {
+        frontendText = await geminiGenerate({ apiKey, model, prompt: frontendPrompt, temperature })
+      } else {
+        const frontendResult = await generateText({
+          model: "openai/gpt-4o",
+          prompt: frontendPrompt,
+        })
+        frontendText = frontendResult.text
+      }
 
       steps[steps.length - 1].status = "completed"
-      steps[steps.length - 1].output = frontendResult.text
+      steps[steps.length - 1].output = frontendText
     }
 
     if (orchestratorAnalysis.agentes_necessarios?.includes("Dev Backend")) {
@@ -158,13 +202,19 @@ Retorne APENAS JSON válido (sem markdown):
   "endpoints": ["lista de endpoints"]
 }`
 
-      const backendResult = await generateText({
-        model,
-        prompt: backendPrompt,
-      })
+      let backendText = ""
+      if (apiKey) {
+        backendText = await geminiGenerate({ apiKey, model, prompt: backendPrompt, temperature })
+      } else {
+        const backendResult = await generateText({
+          model: "openai/gpt-4o",
+          prompt: backendPrompt,
+        })
+        backendText = backendResult.text
+      }
 
       steps[steps.length - 1].status = "completed"
-      steps[steps.length - 1].output = backendResult.text
+      steps[steps.length - 1].output = backendText
     }
 
     const allFiles: Array<{ path: string; content: string; language: string }> = []
@@ -203,6 +253,11 @@ Retorne APENAS JSON válido (sem markdown):
 
 function extractJSON(text: string): any {
   try {
+    // tenta capturar JSON entre ```json ... ``` ou o primeiro objeto
+    let match = text.match(/```json\s*([\s\S]*?)```/i)
+    if (match?.[1]) {
+      return JSON.parse(match[1])
+    }
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0])

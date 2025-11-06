@@ -1,38 +1,46 @@
 # Multiagente IA - Sistema de Desenvolvimento Automatizado
 
-Sistema completo de desenvolvimento automatizado usando múltiplos agentes de IA que trabalham em equipe para criar aplicações web.
+Sistema completo de desenvolvimento automatizado usando múltiplos agentes de IA que trabalham em equipe para criar aplicações web. Interaja via chatbot e deixe a IA orquestrar requisitos, frontend, backend e DevOps — inclusive aplicar arquivos, abrir PR e disparar deploy.
 
 ## Visão Geral
 
-Este sistema funciona como uma equipe completa de desenvolvimento, com agentes especializados que colaboram para criar aplicações:
+Agentes do time:
 
 - **Orquestrador**: Coordena a equipe e distribui tarefas
 - **Analista de Requisitos**: Analisa e documenta requisitos
 - **Desenvolvedor Frontend**: Cria interfaces e componentes React/Next.js
 - **Desenvolvedor Backend**: Implementa APIs e lógica de servidor
-- **DevOps**: Configura deployment e infraestrutura
+- **DevOps**: Configura CI/CD e deploy
 
 ## Funcionalidades
 
 - Geração automática de código por múltiplos agentes de IA
-- Dashboard em tempo real mostrando status dos agentes
-- Sistema de chat para atribuir tarefas
-- Preview de aplicações geradas
-- Área admin para configuração e visualização
-- Sistema de manutenção para iterar no código gerado
-- Tema escuro e responsivo para mobile
+- Chatbot para orquestrar tarefas (comandos em linguagem natural)
+- Preview em tempo real do app gerado
+- Aplicação automática dos arquivos:
+  - Filesystem (dev) ou Pull Request no GitHub
+- Deploy automático via Vercel Deploy Hook
+- Modo Turbo: gerar → aplicar → deployar automaticamente (configurável)
+- Área Admin para configuração (API key, modelo e temperatura)
+- Persistência local + persistência em banco por usuário autenticado
+- Autenticação (GitHub OAuth ou Admin via credenciais)
+- CI (GitHub Actions) com type-check, build e E2E (Playwright)
+- Auto-merge de PRs “ai-generated” (opcional)
+- Download ZIP de todos os arquivos gerados
+- Tema escuro/claro
 
 ## Requisitos
 
 - Node.js 18+ ou 20+
 - npm ou pnpm
 - Conta Vercel (para deploy)
+- Repositório GitHub (para PR automático)
 
 ## Instalação
 
 ### Desenvolvimento Local
 
-\`\`\`bash
+```bash
 # Instalar dependências
 npm install --legacy-peer-deps
 
@@ -40,17 +48,17 @@ npm install --legacy-peer-deps
 npm run dev
 
 # Abrir http://localhost:3000
-\`\`\`
+```
 
 ### Build de Produção
 
-\`\`\`bash
+```bash
 # Criar build otimizado
 npm run build
 
 # Executar build de produção
 npm start
-\`\`\`
+```
 
 ## Configuração
 
@@ -58,146 +66,174 @@ npm start
 
 Crie um arquivo `.env.local` na raiz do projeto:
 
-\`\`\`env
-# Opcional: API Key do Gemini (se quiser usar seu próprio)
+```env
+# IA (opcional — também pode ser configurado via Admin)
 GEMINI_API_KEY=sua_api_key_aqui
 
-# Opcional: Outras configurações
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-\`\`\`
+# Automação de PR no GitHub (opcional)
+GITHUB_TOKEN=ghp_xxx_com_permissao_repo
+GITHUB_REPO=owner/nome-repo
+GITHUB_BASE_BRANCH=main
+
+# Deploy automático (opcional)
+VERCEL_DEPLOY_HOOK_URL=https://api.vercel.com/v1/integrations/deploy/prj_xxx/xxxx
+
+# Banco de dados (SQLite por padrão para dev)
+DATABASE_URL="file:./prisma/dev.db"
+
+# Autenticação (opção 1 - GitHub OAuth)
+GITHUB_ID=...
+GITHUB_SECRET=...
+
+# Autenticação (opção 2 - Admin por credenciais, útil para dev)
+ADMIN_EMAIL=admin@local
+ADMIN_PASSWORD=senha-super-secreta
+NEXTAUTH_SECRET=uma_string_aleatoria_com_32+_chars
+
+# Modo Turbo (opcional - lado cliente; setado no localStorage também)
+NEXT_PUBLIC_AI_TURBO=0
+```
+
+Observação:
+- Se GITHUB_TOKEN + GITHUB_REPO estiverem configurados, “Aplicar ao Projeto” criará um PR automaticamente com label `ai-generated`.
+- O workflow `.github/workflows/auto-merge.yml` fará auto-merge para PRs com label `ai-generated` (caso o repositório permita).
+- Em dev, o SQLite (arquivo `prisma/dev.db`) é suficiente; para produção, use Postgres e ajuste `DATABASE_URL`.
 
 ### Configuração via Interface
 
-1. Acesse a área Admin clicando no botão "Admin" no dashboard
-2. Na tab "Configurações", insira sua API key do Gemini (opcional)
-3. As configurações são salvas no localStorage do navegador
+1. Acesse a área Admin
+2. Em “Configurações”, informe sua API key do Gemini, modelo e temperatura
+3. As configurações ficam salvas no localStorage
+4. Faça login (GitHub OAuth ou Admin por credenciais) para habilitar persistência em banco
 
 ## Deploy na Vercel
 
-### Opção 1: Deploy Direto do v0
+### Deploy automático por Hook
 
-1. Clique no botão "Publish" no topo da interface do v0
-2. O deploy será feito automaticamente
+- Configure `VERCEL_DEPLOY_HOOK_URL` (Environment Secret ou .env)
+- Clique no botão “Deploy” (Admin > Preview) ou peça no chat:
+  - “fazer deploy”, “publicar”, “deploy”, “enviar para produção”
 
-### Opção 2: Deploy via GitHub
+### Deploy via GitHub
 
-1. Faça push do código para um repositório GitHub
-2. Acesse [vercel.com](https://vercel.com)
-3. Clique em "New Project"
-4. Importe seu repositório
-5. Configure as variáveis de ambiente (se necessário)
-6. Clique em "Deploy"
+1. Push no GitHub
+2. O workflow de CI roda (type-check e build)
+3. O workflow `Deploy (Vercel Hook)` dispara para a branch principal (se `VERCEL_DEPLOY_HOOK_URL` estiver em Secrets)
 
-### Opção 3: Deploy via CLI
+### CLI
 
-\`\`\`bash
-# Instalar Vercel CLI
+```bash
 npm i -g vercel
-
-# Fazer deploy
 vercel
-
-# Deploy para produção
 vercel --prod
-\`\`\`
+```
 
 ## Uso
 
 ### Criar uma Aplicação
 
-1. No dashboard principal, use o chat para descrever o que deseja criar
-2. Exemplo: "Criar um dashboard de vendas com gráficos"
-3. Os agentes trabalharão em equipe para gerar o código
-4. Visualize o progresso de cada agente em tempo real
-5. Os arquivos gerados aparecerão na interface
-
-### Visualizar Aplicação Gerada
-
-1. Acesse a área Admin
-2. Na tab "Preview", veja a aplicação funcionando
-3. Na tab "Arquivos", visualize e baixe os arquivos gerados
-
-### Fazer Manutenção
-
-1. Use o painel de manutenção no dashboard
-2. Descreva as alterações desejadas
-3. Os agentes processarão as modificações mantendo o contexto
+- No dashboard, escreva no chat o que deseja (ex.: “Crie um dashboard de vendas com gráfico e tabela com filtros”).
+- Acompanhe as etapas e arquivos gerados.
+- Baixe os arquivos individualmente, todos, ou como ZIP.
 
 ### Aplicar Arquivos ao Projeto
 
-1. Quando os arquivos forem gerados, clique em "Aplicar ao Projeto"
-2. Siga as instruções para integrar o código ao seu projeto
+- Botão “Aplicar ao Projeto” (Admin > Arquivos) ou comando no chat:
+  - “Aplique os arquivos gerados ao projeto”, “aplicar ao projeto” etc.
+- Se GitHub estiver configurado, um PR é aberto automaticamente.
+- Sem GitHub no ambiente local, os arquivos são gravados diretamente no filesystem do servidor (dev).
+
+### Modo Turbo (opcional)
+
+- Ative `NEXT_PUBLIC_AI_TURBO=1` (via .env ou salvando no localStorage).
+- Ao gerar arquivos, o sistema automaticamente:
+  1. Aplica os arquivos (PR no GitHub ou filesystem)
+  2. Dispara o deploy
+
+### Autenticação e Persistência
+
+- Área Admin exige login (GitHub OAuth ou Admin por credenciais).
+- Quando autenticado, o estado do chat (mensagens, tarefas, arquivos, atividades) é sincronizado e persistido em banco (tabela `project_states`).
+
+### Comandos Úteis (Chat)
+
+- “Aplique os arquivos gerados ao projeto”
+- “Fazer deploy”, “publicar”, “enviar para produção”
+- “Corrija/ajuste/adicione” (para manutenção guiada)
 
 ## Estrutura do Projeto
 
-\`\`\`
+```
 multiagente-ia/
-├── app/                    # Páginas Next.js
-│   ├── page.tsx           # Dashboard principal
-│   ├── admin/             # Área administrativa
-│   ├── preview/           # Preview de aplicações
+├── app/
+│   ├── page.tsx           # Dashboard
+│   ├── admin/             # Área administrativa (Preview/Arquivos/Logs)
+│   ├── preview/           # Preview fullscreen
 │   └── api/               # API routes
-│       └── agent/         # Endpoints dos agentes
-├── components/            # Componentes React
-│   ├── ui/               # Componentes shadcn/ui
-│   ├── agent-*.tsx       # Componentes dos agentes
-│   ├── chat-*.tsx        # Sistema de chat
-│   └── *.tsx             # Outros componentes
-├── lib/                   # Bibliotecas e utilitários
-│   ├── agents/           # Lógica dos agentes
-│   ├── context/          # Contextos React
-│   └── types/            # Tipos TypeScript
-└── public/               # Arquivos estáticos
-\`\`\`
+│       ├── agent/         # IA: orchestrate/generate/process/execute
+│       ├── apply/         # Aplica arquivos (PR ou filesystem)
+│       ├── deploy/        # Dispara deploy (Vercel Hook)
+│       ├── archive/       # Gera ZIP dos arquivos
+│       └── auth/          # NextAuth (App Router)
+├── components/            # UI/Chat/Visualizadores
+├── lib/                   # Agents, contextos e tipos (inclui prisma e auth)
+├── prisma/                # Schema Prisma (SQLite dev por padrão)
+└── .github/workflows/     # CI, auto-merge e deploy hook
+```
 
 ## Tecnologias
 
-- **Next.js 15**: Framework React
-- **React 18**: Biblioteca UI
-- **TypeScript**: Tipagem estática
-- **Tailwind CSS v4**: Estilização
-- **shadcn/ui**: Componentes UI
-- **Vercel AI SDK**: Integração com IA
-- **Lucide React**: Ícones
+- **Next.js 15**, **React 19**, **TypeScript**
+- **Tailwind CSS v4**, **shadcn/ui**
+- **Vercel AI SDK**
+- **NextAuth + Prisma Adapter**
+- **Prisma + SQLite (dev) / Postgres (prod)**
+- **GitHub Actions** (CI, auto-merge, deploy hook)
+- **JSZip** (gerar ZIP no servidor)
 
 ## Troubleshooting
 
 ### Erro de dependências
 
-\`\`\`bash
-# Limpar cache e reinstalar
+```bash
 rm -rf node_modules package-lock.json pnpm-lock.yaml
 npm install --legacy-peer-deps
-\`\`\`
+```
 
 ### Erro de build
 
-\`\`\`bash
-# Verificar erros de TypeScript
-npm run lint
-
-# Build com logs detalhados
+```bash
+npm run type-check
 npm run build -- --debug
-\`\`\`
+```
 
 ### Problemas com IA
 
-1. Verifique se a API key está configurada corretamente
-2. Teste a conexão na área Admin
-3. Verifique os logs no console do navegador
+1. Verifique a API key no Admin
+2. Ajuste modelo/temperatura
+3. Consulte console do navegador e logs da API
+
+### PR/Auto-merge
+
+- Verifique se o repo permite auto-merge
+- Confirme a presença do label `ai-generated`
+
+### Banco/Prisma
+
+- Confirme `DATABASE_URL` no `.env.local`
+- Para Postgres, ajuste `provider = "postgresql"` e rode migrações
 
 ## Contribuindo
 
-Este é um projeto de código aberto. Contribuições são bem-vindas!
+PRs e sugestões são bem-vindos.
 
 ## Licença
 
-MIT License - veja LICENSE para detalhes
+MIT License
 
 ## Suporte
 
-Para suporte, abra uma issue no GitHub ou entre em contato através do Vercel.
+Abra uma issue no GitHub ou use os canais do Vercel.
 
 ---
-
-Desenvolvido com ❤️ usando v0 e Vercel AI SDK
+Desenvolvido com ❤️ por um time de IAs orquestradas

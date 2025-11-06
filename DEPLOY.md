@@ -1,41 +1,76 @@
-# Guia de Deploy no Vercel
+# Guia de Deploy e Automação
 
-## Deploy Automático via v0
+## 1) Deploy Automático (Vercel Deploy Hook)
 
-1. **Clique em "Publish"** no canto superior direito da interface do v0
-2. Aguarde o processo de build e deploy
-3. Sua aplicação estará disponível em uma URL pública
+- Crie um Deploy Hook no projeto Vercel (Project Settings → Git → Deploy Hooks).
+- Adicione o valor como secret no GitHub (`VERCEL_DEPLOY_HOOK_URL`) ou em `.env.local`.
 
-## Configurações Necessárias
+Você poderá:
+- Disparar deploy pelo botão “Deploy” (Admin > Preview).
+- Disparar deploy via chat: “fazer deploy”, “publicar”, etc.
+- Disparar deploy automaticamente no push para `main` (workflow `.github/workflows/deploy.yml` usa o secret).
 
-### Variáveis de Ambiente (Opcional)
+## 2) PR Automático no GitHub
 
-Se você configurou uma API key do Gemini na área admin, ela é armazenada localmente no navegador. Para usar em produção:
+Para aplicar arquivos gerados criando um Pull Request automaticamente:
 
-1. Acesse o dashboard do Vercel
-2. Vá em Settings → Environment Variables
-3. Adicione (se necessário):
-   - `GEMINI_API_KEY` - Sua chave da API do Gemini (opcional)
+- Adicione secrets no GitHub:
+  - `GITHUB_TOKEN` (token com permissão `repo`)
+  - `GITHUB_REPO` (formato `owner/repo`)
+  - Opcional: `GITHUB_BASE_BRANCH` (padrão `main`)
 
-### Após o Deploy
+Ao usar “Aplicar ao Projeto”:
+- Um PR é criado com label `ai-generated`.
+- Workflow `.github/workflows/auto-merge.yml` fará auto-merge (se permitido nas configs do repo).
+- Workflow `.github/workflows/ci.yml` roda type-check e build.
 
-1. Acesse a URL fornecida pelo Vercel
-2. Configure sua API key na área Admin (/admin)
-3. Comece a usar o sistema multiagente!
+## 3) Modo Turbo (Gerar → Aplicar → Deploy)
 
-## Recursos da Aplicação
+- Ative `NEXT_PUBLIC_AI_TURBO=1` (em `.env.local` e/ou salve no localStorage).
+- Ao gerar arquivos, o sistema aplica e aciona deploy automaticamente.
 
-- ✅ Dashboard com visualização de agentes
-- ✅ Sistema de chat para atribuir tarefas
-- ✅ Geração automática de código
-- ✅ Área admin para configurações
-- ✅ Preview de aplicações geradas
-- ✅ Tema escuro
-- ✅ Responsivo para mobile
+## 4) Variáveis de Ambiente (Resumo)
+
+No Vercel (Project Settings → Environment Variables) ou `.env.local`:
+
+```
+# IA
+GEMINI_API_KEY=...
+
+# GitHub (PR automático)
+GITHUB_TOKEN=...
+GITHUB_REPO=owner/repo
+GITHUB_BASE_BRANCH=main
+
+# Deploy Hook
+VERCEL_DEPLOY_HOOK_URL=https://api.vercel.com/v1/integrations/deploy/...
+
+# Turbo
+NEXT_PUBLIC_AI_TURBO=0
+```
+
+## 5) Após o Deploy
+
+- Acesse a URL fornecida pelo Vercel
+- Configure sua API key no Admin (/admin), caso não tenha configurado via ambiente
+- Interaja com o chatbot para gerar, aplicar e publicar sua aplicação
+
+## 6) Recursos da Aplicação
+
+- ✅ Geração de código por múltiplos agentes (IA)
+- ✅ Chat de orquestração
+- ✅ Preview de aplicações
+- ✅ Aplicação automática (FS/PR)
+- ✅ Deploy via Hook
+- ✅ Modo Turbo
+- ✅ CI (type-check + build)
+- ✅ Auto-merge opcional
+- ✅ Tema escuro/claro
 
 ## Suporte
 
-Se encontrar problemas no deploy:
+Se encontrar problemas:
 1. Verifique os logs de build no Vercel
-2. Certifique-se de que todas as dependências estão instaladas
-3. Abra um ticket de suporte em vercel.com/help
+2. Confirme as variáveis de ambiente/secrets
+3. Confira a aba Actions do GitHub (CI/auto-merge/deploy)
+4. Abra um ticket em vercel.com/help

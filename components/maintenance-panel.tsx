@@ -28,7 +28,12 @@ ${maintenanceRequest}
 
 Por favor, analise os arquivos existentes e faça as modificações solicitadas mantendo a estrutura e funcionalidades existentes.`
 
-    await addTask(contextualRequest, "high")
+    await addTask({
+      title: `Manutenção: ${maintenanceRequest.slice(0, 40)}${maintenanceRequest.length > 40 ? "..." : ""}`,
+      description: contextualRequest,
+      status: "pending",
+      priority: "high",
+    })
     setMaintenanceRequest("")
     setIsProcessing(false)
   }
