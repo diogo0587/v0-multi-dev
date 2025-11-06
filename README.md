@@ -22,8 +22,9 @@ Agentes do time:
 - Deploy automático via Vercel Deploy Hook
 - Modo Turbo: gerar → aplicar → deployar automaticamente (configurável)
 - Área Admin para configuração (API key, modelo e temperatura)
-- Persistência local de mensagens/tarefas/arquivos/atividades
-- CI (GitHub Actions) com type-check e build
+- Persistência local + persistência em banco por usuário autenticado
+- Autenticação (GitHub OAuth ou Admin via credenciais)
+- CI (GitHub Actions) com type-check, build e E2E (Playwright)
 - Auto-merge de PRs “ai-generated” (opcional)
 - Download ZIP de todos os arquivos gerados
 - Tema escuro/claro
@@ -77,6 +78,18 @@ GITHUB_BASE_BRANCH=main
 # Deploy automático (opcional)
 VERCEL_DEPLOY_HOOK_URL=https://api.vercel.com/v1/integrations/deploy/prj_xxx/xxxx
 
+# Banco de dados (SQLite por padrão para dev)
+DATABASE_URL="file:./prisma/dev.db"
+
+# Autenticação (opção 1 - GitHub OAuth)
+GITHUB_ID=...
+GITHUB_SECRET=...
+
+# Autenticação (opção 2 - Admin por credenciais, útil para dev)
+ADMIN_EMAIL=admin@local
+ADMIN_PASSWORD=senha-super-secreta
+NEXTAUTH_SECRET=uma_string_aleatoria_com_32+_chars
+
 # Modo Turbo (opcional - lado cliente; setado no localStorage também)
 NEXT_PUBLIC_AI_TURBO=0
 ```
@@ -84,12 +97,14 @@ NEXT_PUBLIC_AI_TURBO=0
 Observação:
 - Se GITHUB_TOKEN + GITHUB_REPO estiverem configurados, “Aplicar ao Projeto” criará um PR automaticamente com label `ai-generated`.
 - O workflow `.github/workflows/auto-merge.yml` fará auto-merge para PRs com label `ai-generated` (caso o repositório permita).
+- Em dev, o SQLite (arquivo `prisma/dev.db`) é suficiente; para produção, use Postgres e ajuste `DATABASE_URL`.
 
 ### Configuração via Interface
 
 1. Acesse a área Admin
 2. Em “Configurações”, informe sua API key do Gemini, modelo e temperatura
 3. As configurações ficam salvas no localStorage
+4. Faça login (GitHub OAuth ou Admin por credenciais) para habilitar persistência em banco
 
 ## Deploy na Vercel
 
@@ -135,6 +150,11 @@ vercel --prod
   1. Aplica os arquivos (PR no GitHub ou filesystem)
   2. Dispara o deploy
 
+### Autenticação e Persistência
+
+- Área Admin exige login (GitHub OAuth ou Admin por credenciais).
+- Quando autenticado, o estado do chat (mensagens, tarefas, arquivos, atividades) é sincronizado e persistido em banco (tabela `project_states`).
+
 ### Comandos Úteis (Chat)
 
 - “Aplique os arquivos gerados ao projeto”
@@ -153,9 +173,11 @@ multiagente-ia/
 │       ├── agent/         # IA: orchestrate/generate/process/execute
 │       ├── apply/         # Aplica arquivos (PR ou filesystem)
 │       ├── deploy/        # Dispara deploy (Vercel Hook)
-│       └── archive/       # Gera ZIP dos arquivos
+│       ├── archive/       # Gera ZIP dos arquivos
+│       └── auth/          # NextAuth (App Router)
 ├── components/            # UI/Chat/Visualizadores
-├── lib/                   # Agents, contextos e tipos
+├── lib/                   # Agents, contextos e tipos (inclui prisma e auth)
+├── prisma/                # Schema Prisma (SQLite dev por padrão)
 └── .github/workflows/     # CI, auto-merge e deploy hook
 ```
 
@@ -164,6 +186,8 @@ multiagente-ia/
 - **Next.js 15**, **React 19**, **TypeScript**
 - **Tailwind CSS v4**, **shadcn/ui**
 - **Vercel AI SDK**
+- **NextAuth + Prisma Adapter**
+- **Prisma + SQLite (dev) / Postgres (prod)**
 - **GitHub Actions** (CI, auto-merge, deploy hook)
 - **JSZip** (gerar ZIP no servidor)
 
@@ -193,6 +217,11 @@ npm run build -- --debug
 
 - Verifique se o repo permite auto-merge
 - Confirme a presença do label `ai-generated`
+
+### Banco/Prisma
+
+- Confirme `DATABASE_URL` no `.env.local`
+- Para Postgres, ajuste `provider = "postgresql"` e rode migrações
 
 ## Contribuindo
 

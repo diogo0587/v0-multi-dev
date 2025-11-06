@@ -14,11 +14,14 @@ import { useChat } from "@/lib/context/chat-context"
 import { GeneratedFilesViewer } from "@/components/generated-files-viewer"
 import { AppPreview } from "@/components/app-preview"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 
 export default function AdminPage() {
   const [apiKeyInput, setApiKeyInput] = useState("")
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null)
   const [isDeploying, setIsDeploying] = useState(false)
+  const { status } = useSession()
+  const isAuthed = status === "authenticated"
   const { toast } = useToast()
   const { apiKey, setApiKey, clearApiKey, model, setModel, temperature, setTemperature } = useSettings()
   const { generatedFiles, activities } = useChat()
@@ -145,224 +148,241 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="settings" className="space-y-4 md:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Configurações
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="gap-2">
-              <Play className="h-4 w-4" />
-              Preview
-            </TabsTrigger>
-            <TabsTrigger value="files" className="gap-2">
-              <Code className="h-4 w-4" />
-              Arquivos
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="gap-2">
-              <Key className="h-4 w-4" />
-              Logs
-            </TabsTrigger>
-          </TabsList>
+        {!isAuthed ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Acesso Restrito</CardTitle>
+              <CardDescription>Faça login para acessar a área administrativa.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              <Link href="/api/auth/signin?callbackUrl=/admin">
+                <Button>Entrar</Button>
+              </Link>
+              <p className="text-sm text-muted-foreground">
+                Dica: você pode configurar autenticação por GitHub (GITHUB_ID/GITHUB_SECRET) ou admin via ADMIN_EMAIL/ADMIN_PASSWORD.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Tabs defaultValue="settings" className="space-y-4 md:space-y-6">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
+              <TabsTrigger value="settings" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Configurações
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="gap-2">
+                <Play className="h-4 w-4" />
+                Preview
+              </TabsTrigger>
+              <TabsTrigger value="files" className="gap-2">
+                <Code className="h-4 w-4" />
+                Arquivos
+              </TabsTrigger>
+              <TabsTrigger value="logs" className="gap-2">
+                <Key className="h-4 w-4" />
+                Logs
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="settings" className="space-y-4 md:space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
-                  Configuração da API Key
-                </CardTitle>
-                <CardDescription>
-                  Configure sua API key do Google Gemini para habilitar a geração automática de código
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="api-key">Google Gemini API Key</Label>
+            <TabsContent value="settings" className="space-y-4 md:space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5" />
+                    Configuração da API Key
+                  </CardTitle>
+                  <CardDescription>
+                    Configure sua API key do Google Gemini para habilitar a geração automática de código
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="api-key">Google Gemini API Key</Label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        id="api-key"
+                        type="password"
+                        placeholder="AIza..."
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        className="font-mono"
+                      />
+                      {isApiKeyValid !== null && (
+                        <Badge variant={isApiKeyValid ? "default" : "destructive"} className="gap-1">
+                          {isApiKeyValid ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3" />
+                              Válida
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-3 w-3" />
+                              Inválida
+                            </>
+                          )}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Obtenha sua API key em{" "}
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                      >
+                        Google AI Studio
+                      </a>
+                    </p>
+                  </div>
+
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <Input
-                      id="api-key"
-                      type="password"
-                      placeholder="AIza..."
-                      value={apiKeyInput}
-                      onChange={(e) => setApiKeyInput(e.target.value)}
-                      className="font-mono"
-                    />
-                    {isApiKeyValid !== null && (
-                      <Badge variant={isApiKeyValid ? "default" : "destructive"} className="gap-1">
-                        {isApiKeyValid ? (
-                          <>
-                            <CheckCircle2 className="h-3 w-3" />
-                            Válida
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-3 w-3" />
-                            Inválida
-                          </>
-                        )}
-                      </Badge>
+                    <Button onClick={handleSaveApiKey}>Salvar API Key</Button>
+                    <Button onClick={handleTestApiKey} variant="outline">
+                      Testar Conexão
+                    </Button>
+                    {apiKey && (
+                      <Button onClick={handleClearApiKey} variant="destructive">
+                        Remover API Key
+                      </Button>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Obtenha sua API key em{" "}
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      Google AI Studio
-                    </a>
-                  </p>
-                </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button onClick={handleSaveApiKey}>Salvar API Key</Button>
-                  <Button onClick={handleTestApiKey} variant="outline">
-                    Testar Conexão
-                  </Button>
                   {apiKey && (
-                    <Button onClick={handleClearApiKey} variant="destructive">
-                      Remover API Key
-                    </Button>
-                  )}
-                </div>
-
-                {apiKey && (
-                  <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-4">
-                    <p className="text-sm text-green-700 dark:text-green-400">
-                      ✓ API key configurada e pronta para uso
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações do Sistema</CardTitle>
-                <CardDescription>Personalize o comportamento dos agentes</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="model">Modelo de IA</Label>
-                  <Input
-                    id="model"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder="gemini-2.0-flash-exp"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Modelos disponíveis: gemini-2.0-flash-exp, gemini-1.5-pro, gemini-1.5-flash
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="temperature">Temperatura (Criatividade): {temperature}</Label>
-                  <Input
-                    id="temperature"
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={temperature}
-                    onChange={(e) => setTemperature(Number.parseFloat(e.target.value))}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    0 = Mais preciso e determinístico | 2 = Mais criativo e variado
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="preview">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Preview da Aplicação</span>
-                  {generatedFiles.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href="/preview" target="_blank">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Abrir em Nova Aba
-                        </Link>
-                      </Button>
-                      <Button variant="default" size="sm" onClick={handleDeploy} disabled={isDeploying}>
-                        <Rocket className={`h-4 w-4 mr-2 ${isDeploying ? "animate-pulse" : ""}`} />
-                        {isDeploying ? "Acionando..." : "Deploy"}
-                      </Button>
+                    <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-4">
+                      <p className="text-sm text-green-700 dark:text-green-400">
+                        ✓ API key configurada e pronta para uso
+                      </p>
                     </div>
                   )}
-                </CardTitle>
-                <CardDescription>Visualize e execute a aplicação gerada pelos agentes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {generatedFiles.length > 0 ? (
-                  <AppPreview files={generatedFiles} />
-                ) : (
-                  <div className="rounded-lg border bg-muted/50 p-8 text-center">
-                    <Play className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">
-                      Nenhuma aplicação gerada ainda. Atribua uma tarefa aos agentes para começar.
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configurações do Sistema</CardTitle>
+                  <CardDescription>Personalize o comportamento dos agentes</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="model">Modelo de IA</Label>
+                    <Input
+                      id="model"
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      placeholder="gemini-2.0-flash-exp"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Modelos disponíveis: gemini-2.0-flash-exp, gemini-1.5-pro, gemini-1.5-flash
                     </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="files">
-            <Card>
-              <CardHeader>
-                <CardTitle>Arquivos Gerados</CardTitle>
-                <CardDescription>Visualize e gerencie os arquivos criados pelos agentes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {generatedFiles.length > 0 ? (
-                  <GeneratedFilesViewer files={generatedFiles} />
-                ) : (
-                  <div className="rounded-lg border bg-muted/50 p-8 text-center">
-                    <Code className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Nenhum arquivo gerado ainda</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="temperature">Temperatura (Criatividade): {temperature}</Label>
+                    <Input
+                      id="temperature"
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      value={temperature}
+                      onChange={(e) => setTemperature(Number.parseFloat(e.target.value))}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      0 = Mais preciso e determinístico | 2 = Mais criativo e variado
+                    </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <TabsContent value="logs">
-            <Card>
-              <CardHeader>
-                <CardTitle>Logs de Execução</CardTitle>
-                <CardDescription>Acompanhe as atividades dos agentes em tempo real</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {activities.length > 0 ? (
-                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                    {activities.map((activity, index) => (
-                      <div key={index} className="rounded-lg border bg-card p-3 text-sm">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium">{activity.agent}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(activity.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground">{activity.action}</p>
+            <TabsContent value="preview">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Preview da Aplicação</span>
+                    {generatedFiles.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href="/preview" target="_blank">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Abrir em Nova Aba
+                          </Link>
+                        </Button>
+                        <Button variant="default" size="sm" onClick={handleDeploy} disabled={isDeploying}>
+                          <Rocket className={`h-4 w-4 mr-2 ${isDeploying ? "animate-pulse" : ""}`} />
+                          {isDeploying ? "Acionando..." : "Deploy"}
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border bg-muted/50 p-8 text-center">
-                    <Key className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Nenhum log disponível</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                    )}
+                  </CardTitle>
+                  <CardDescription>Visualize e execute a aplicação gerada pelos agentes</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {generatedFiles.length > 0 ? (
+                    <AppPreview files={generatedFiles} />
+                  ) : (
+                    <div className="rounded-lg border bg-muted/50 p-8 text-center">
+                      <Play className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <p className="mt-4 text-muted-foreground">
+                        Nenhuma aplicação gerada ainda. Atribua uma tarefa aos agentes para começar.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="files">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Arquivos Gerados</CardTitle>
+                  <CardDescription>Visualize e gerencie os arquivos criados pelos agentes</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {generatedFiles.length > 0 ? (
+                    <GeneratedFilesViewer files={generatedFiles} />
+                  ) : (
+                    <div className="rounded-lg border bg-muted/50 p-8 text-center">
+                      <Code className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <p className="mt-4 text-muted-foreground">Nenhum arquivo gerado ainda</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="logs">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Logs de Execução</CardTitle>
+                  <CardDescription>Acompanhe as atividades dos agentes em tempo real</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {activities.length > 0 ? (
+                    <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                      {activities.map((activity, index) => (
+                        <div key={index} className="rounded-lg border bg-card p-3 text-sm">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium">{activity.agent}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(activity.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground">{activity.action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border bg-muted/50 p-8 text-center">
+                      <Key className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <p className="mt-4 text-muted-foreground">Nenhum log disponível</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   )

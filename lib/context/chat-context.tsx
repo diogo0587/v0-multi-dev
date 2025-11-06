@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import type { AgentMessage, Task, AgentRole } from "@/lib/types/agent"
+import { useSession } from "next-auth/react"
 
 interface GeneratedFile {
   path: string
@@ -34,6 +35,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
+  const { status } = useSession()
+  const isAuthed = status === "authenticated"
 
   // Persistência simples no localStorage
   useEffect(() => {
@@ -67,6 +70,70 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       // ignora erros de parse
     }
   }, [])
+
+  // Carrega estado do servidor quando autenticado
+  useEffect(() => {
+    let aborted = false
+    async function loadRemote() {
+      if (!isAuthed) return
+      try {
+        const res = await fetch("/api/data/state", { method: "GET" })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data?.state || aborted) return
+        const state = data.state as {
+          messages?: AgentMessage[]
+          tasks?: Task[]
+          generatedFiles?: GeneratedFile[]
+          activities?: Activity[]
+        }
+        if (state.messages) {
+          setMessages(state.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })))
+        }
+        if (state.tasks) {
+          setTasks(
+            state.tasks.map((t: any) => ({
+              ...t,
+              createdAt: new Date(t.createdAt),
+              updatedAt: new Date(t.updatedAt),
+            })),
+          )
+        }
+        if (state.generatedFiles) {
+          setGeneratedFiles(state.generatedFiles as GeneratedFile[])
+        }
+        if (state.activities) {
+          setActivities(state.activities.map((a: any) => ({ ...a, timestamp: new Date(a.timestamp) })))
+        }
+      } catch {
+        // ignora
+      }
+    }
+    loadRemote()
+    return () => {
+      aborted = true
+    }
+  }, [isAuthed])
+
+  // Sincroniza com servidor quando autenticado
+  useEffect(() => {
+    if (!isAuthed) return
+    const controller = new AbortController()
+    async function saveRemote() {
+      try {
+        await fetch("/api/data/state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages, tasks, generatedFiles, activities }),
+          signal: controller.signal,
+        })
+      } catch {
+        // ignora
+      }
+    }
+    saveRemote()
+    return () => controller.abort()
+  }, [isAuthed, messages, tasks, generatedFiles, activities])
 
   useEffect(() => {
     try {
