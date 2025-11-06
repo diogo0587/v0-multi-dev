@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Code, Play, Key, CheckCircle2, XCircle, ArrowLeft, ExternalLink } from "lucide-react"
+import { Settings, Code, Play, Key, CheckCircle2, XCircle, ArrowLeft, ExternalLink, Rocket } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useSettings } from "@/lib/context/settings-context"
 import { useChat } from "@/lib/context/chat-context"
@@ -18,6 +18,7 @@ import Link from "next/link"
 export default function AdminPage() {
   const [apiKeyInput, setApiKeyInput] = useState("")
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null)
+  const [isDeploying, setIsDeploying] = useState(false)
   const { toast } = useToast()
   const { apiKey, setApiKey, clearApiKey, model, setModel, temperature, setTemperature } = useSettings()
   const { generatedFiles, activities } = useChat()
@@ -102,6 +103,29 @@ export default function AdminPage() {
       title: "API key removida",
       description: "A API key foi removida do sistema",
     })
+  }
+
+  const handleDeploy = async () => {
+    try {
+      setIsDeploying(true)
+      const res = await fetch("/api/deploy", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Falha ao acionar deploy")
+      }
+      toast({
+        title: "Deploy acionado",
+        description: data.message || "Vercel Deploy Hook executado",
+      })
+    } catch (e) {
+      toast({
+        title: "Erro no deploy",
+        description: e instanceof Error ? e.message : "Tente novamente",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeploying(false)
+    }
   }
 
   return (
@@ -258,12 +282,18 @@ export default function AdminPage() {
                 <CardTitle className="flex items-center justify-between">
                   <span>Preview da Aplicação</span>
                   {generatedFiles.length > 0 && (
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href="/preview" target="_blank">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Abrir em Nova Aba
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href="/preview" target="_blank">
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Abrir em Nova Aba
+                        </Link>
+                      </Button>
+                      <Button variant="default" size="sm" onClick={handleDeploy} disabled={isDeploying}>
+                        <Rocket className={`h-4 w-4 mr-2 ${isDeploying ? "animate-pulse" : ""}`} />
+                        {isDeploying ? "Acionando..." : "Deploy"}
+                      </Button>
+                    </div>
                   )}
                 </CardTitle>
                 <CardDescription>Visualize e execute a aplicação gerada pelos agentes</CardDescription>

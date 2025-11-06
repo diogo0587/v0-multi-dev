@@ -19,6 +19,7 @@ interface GeneratedFilesViewerProps {
 
 export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewerProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null)
+  const [isApplying, setIsApplying] = useState(false)
   const { toast } = useToast()
 
   const copyToClipboard = async (content: string, path: string) => {
@@ -45,13 +46,40 @@ export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewe
     })
   }
 
-  const showApplyInstructions = () => {
-    toast({
-      title: "Como aplicar os arquivos",
-      description:
-        "Digite no chat: 'Aplique os arquivos gerados ao projeto' e os arquivos serão criados automaticamente.",
-      duration: 5000,
-    })
+  const handleApply = async () => {
+    if (!files.length || isApplying) return
+    setIsApplying(true)
+    try {
+      const res = await fetch("/api/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files, commitMessage: "feat(ai): aplicar arquivos gerados" }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Falha ao aplicar arquivos")
+      }
+      if (data.mode === "github" && data.prUrl) {
+        toast({
+          title: "PR criado no GitHub",
+          description: `Arquivos enviados e Pull Request aberto: ${data.prUrl}`,
+        })
+        window.open(data.prUrl, "_blank")
+      } else {
+        toast({
+          title: "Arquivos aplicados",
+          description: "Os arquivos foram gravados no filesystem do servidor (dev).",
+        })
+      }
+    } catch (e) {
+      toast({
+        title: "Erro ao aplicar arquivos",
+        description: e instanceof Error ? e.message : "Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsApplying(false)
+    }
   }
 
   if (files.length === 0) {
@@ -66,11 +94,11 @@ export function GeneratedFilesViewer({ files, description }: GeneratedFilesViewe
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
         <div className="flex gap-2">
-          <Button onClick={showApplyInstructions} variant="default" size="sm">
-            <Sparkles className="h-4 w-4 mr-2" />
-            Aplicar ao Projeto
+          <Button onClick={handleApply} variant="default" size="sm" disabled={isApplying}>
+            <Sparkles className={`h-4 w-4 mr-2 ${isApplying ? "animate-pulse" : ""}`} />
+            {isApplying ? "Aplicando..." : "Aplicar ao Projeto"}
           </Button>
-          <Button onClick={downloadAll} variant="outline" size="sm">
+          <Button onClick={downloadAll} variant="outline" size="sm" disabled={isApplying}>
             <Download className="h-4 w-4 mr-2" />
             Baixar Todos
           </Button>

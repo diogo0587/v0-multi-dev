@@ -13,22 +13,94 @@ import type { TaskPriority } from "@/lib/types/agent"
 export function TaskInput() {
   const [taskDescription, setTaskDescription] = useState("")
   const [priority, setPriority] = useState<TaskPriority>("medium")
-  const { addTask, addMessage, isProcessing } = useChat()
+  const [isApplying, setIsApplying] = useState(false)
+  const { addTask, addMessage, isProcessing, generatedFiles } = useChat()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!taskDescription.trim() || isProcessing) return
+    const text = taskDescription.trim()
+    if (!text || isProcessing || isApplying) return
 
     addMessage({
       agentId: "user",
       agentRole: "orchestrator",
-      content: taskDescription,
+      content: text,
       type: "info",
     })
 
+    const lower = text.toLowerCase()
+    const isApplyCmd =
+      lower.includes("aplique os arquivos") ||
+      lower.includes("aplicar os arquivos") ||
+      lower.includes("aplique os arquivos gerados") ||
+      lower.includes("aplicar arquivos gerados") ||
+      lower.includes("aplicar ao projeto") ||
+      lower.includes("aplique ao projeto")
+
+    if (isApplyCmd) {
+      if (generatedFiles.length === 0) {
+        addMessage({
+          agentId: "orchestrator-001",
+          agentRole: "orchestrator",
+          content: "⚠️ Nenhum arquivo gerado para aplicar.",
+          type: "warning",
+        })
+        setTaskDescription("")
+        return
+      }
+
+      try {
+        setIsApplying(true)
+        addMessage({
+          agentId: "orchestrator-001",
+          agentRole: "orchestrator",
+          content: "🚀 Aplicando arquivos gerados ao projeto...",
+          type: "info",
+        })
+
+        const res = await fetch("/api/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ files: generatedFiles, commitMessage: "feat(ai): aplicar arquivos gerados" }),
+        })
+        const data = await res.json()
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Falha ao aplicar arquivos")
+        }
+
+        if (data.mode === "github" && data.prUrl) {
+          addMessage({
+            agentId: "orchestrator-001",
+            agentRole: "orchestrator",
+            content: `✅ Pull Request criado com sucesso: ${data.prUrl}`,
+            type: "success",
+          })
+        } else {
+          addMessage({
+            agentId: "orchestrator-001",
+            agentRole: "orchestrator",
+            content: "✅ Arquivos aplicados no filesystem do servidor (dev).",
+            type: "success",
+          })
+        }
+      } catch (err) {
+        addMessage({
+          agentId: "orchestrator-001",
+          agentRole: "orchestrator",
+          content: `❌ Erro ao aplicar arquivos: ${err instanceof Error ? err.message : "desconhecido"}`,
+          type: "error",
+        })
+      } finally {
+        setIsApplying(false)
+        setTaskDescription("")
+      }
+      return
+    }
+
     await addTask({
-      title: taskDescription.slice(0, 50) + (taskDescription.length > 50 ? "..." : ""),
-      description: taskDescription,
+      title: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
+      description: text,
       status: "pending",
       priority,
     })
@@ -43,10 +115,14 @@ export function TaskInput() {
         value={taskDescription}
         onChange={(e) => setTaskDescription(e.target.value)}
         className="min-h-24 max-h-40 resize-none"
-        disabled={isProcessing}
+        disabled={isProcessing || isApplying}
       />
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)} disabled={isProcessing}>
+        <Select
+          value={priority}
+          onValueChange={(value) => setPriority(value as TaskPriority)}
+          disabled={isProcessing || isApplying}
+        >
           <SelectTrigger className="w-40 flex-shrink-0">
             <SelectValue />
           </SelectTrigger>
@@ -60,9 +136,9 @@ export function TaskInput() {
         <Button
           type="submit"
           className="ml-auto flex-shrink-0 gap-2 min-w-fit"
-          disabled={isProcessing || !taskDescription.trim()}
+          disabled={isProcessing || isApplying || !taskDescription.trim()}
         >
-          {isProcessing ? (
+          {isProcessing || isApplying ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="hidden sm:inline">Processando...</span>
