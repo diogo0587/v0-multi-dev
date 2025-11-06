@@ -1,0 +1,27 @@
+name: Deploy on PR Merge (ai-generated)
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  deploy_if_ai_generated:
+    if: >
+      github.event.pull_request.merged == true &&
+      contains(toJson(github.event.pull_request.labels), 'ai-generated')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook after merge
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL não configurada nos secrets"
+            exit 1
+          fi
+          MSG=$(jq -n --arg n "$PR_NUMBER" --arg t "$PR_TITLE" --arg u "$PR_URL" \
+            '{message: ("CI: PR #"+$n+" (ai-generated) mergeado -> deploy | "+$t+" | "+$u)}')
+          curl -X POST -H "Content-Type: application/json" -d "$MSG" "$HOOK"
