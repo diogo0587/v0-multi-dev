@@ -9,6 +9,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  trustHost: true,
   providers: [
     // GitHub OAuth (opcional)
     ...(process.env.GITHUB_ID && process.env.GITHUB_SECRET
@@ -48,7 +49,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.uid = (user as any).id || token.sub
         token.role = (user as any).role || token.role || "USER"
@@ -64,7 +65,7 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    // usar páginas padrão do next-auth
+    signIn: "/auth/signin",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
 }
