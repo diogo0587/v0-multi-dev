@@ -14,7 +14,6 @@ import { useChat } from "@/lib/context/chat-context"
 import { GeneratedFilesViewer } from "@/components/generated-files-viewer"
 import { AppPreview } from "@/components/app-preview"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
 
 export default function AdminPage() {
   const [apiKeyInput, setApiKeyInput] = useState("")
@@ -22,8 +21,7 @@ export default function AdminPage() {
   const [isDeploying, setIsDeploying] = useState(false)
   const [isCommitting, setIsCommitting] = useState(false)
   const [isCommittingDirect, setIsCommittingDirect] = useState(false)
-  const { status } = useSession()
-  const isAuthed = status === "authenticated"
+  const isAuthed = true
   const { toast } = useToast()
   const { apiKey, setApiKey, clearApiKey, model, setModel, temperature, setTemperature } = useSettings()
   const { generatedFiles, activities } = useChat()
