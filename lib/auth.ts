@@ -4,6 +4,11 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
+const DEV_FALLBACK = {
+  email: "admin@local",
+  password: "admin",
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
@@ -20,7 +25,7 @@ export const authOptions: NextAuthOptions = {
           }),
         ]
       : []),
-    // Credenciais (Admin via variáveis de ambiente)
+    // Credenciais (Admin via variáveis de ambiente) + fallback dev
     CredentialsProvider({
       name: "Admin",
       credentials: {
@@ -34,6 +39,7 @@ export const authOptions: NextAuthOptions = {
         const adminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
         const adminPassword = process.env.ADMIN_PASSWORD || ""
 
+        // Produção: requer ADMIN_EMAIL/ADMIN_PASSWORD
         if (adminEmail && adminPassword && email === adminEmail && password === adminPassword) {
           const user = await prisma.user.upsert({
             where: { email },
@@ -43,7 +49,19 @@ export const authOptions: NextAuthOptions = {
           return { id: user.id, email: user.email, name: user.name || "Admin", image: user.image }
         }
 
-        // Se não houver admin por env, negar
+        // Desenvolvimento: fallback se não houver env definido
+        if (process.env.NODE_ENV !== "production" && !adminEmail && !adminPassword) {
+          if (email === DEV_FALLBACK.email && password === DEV_FALLBACK.password) {
+            const user = await prisma.user.upsert({
+              where: { email },
+              update: { role: "ADMIN", name: "Admin (Dev)" },
+              create: { email, name: "Admin (Dev)", role: "ADMIN" },
+            })
+            return { id: user.id, email: user.email, name: user.name || "Admin (Dev)", image: user.image }
+          }
+        }
+
+        // Caso contrário, negar
         return null
       },
     }),

@@ -17,17 +17,20 @@ export default function SignInPage() {
     if (!email || !password) return
     setLoading(true)
     try {
-      const res = await signIn("credentials", {
+      await signIn("credentials", {
         email,
         password,
         callbackUrl: "/admin",
         redirect: true,
       })
-      // signIn handles redirect
     } finally {
       setLoading(false)
     }
   }
+
+  const isDevFallback =
+    typeof window !== "undefined" && process.env.NODE_ENV !== "production" &&
+    !(process.env.ADMIN_EMAIL) && !(process.env.ADMIN_PASSWORD)
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -37,6 +40,19 @@ export default function SignInPage() {
           <CardDescription>Acesse a área administrativa</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isDevFallback && (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p>
+                Ambiente de desenvolvimento detectado. Você pode usar:
+              </p>
+              <p className="mt-1 font-mono">
+                Email: admin@local
+              </p>
+              <p className="font-mono">
+                Senha: admin
+              </p>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email (Admin)</Label>
             <Input
