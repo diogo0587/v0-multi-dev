@@ -1,0 +1,12 @@
+# Docker build context excludes
+node_modules
+.next
+.git
+.gitignore
+npm-debug.log
+pnpm-lock.yaml
+.env
+.env.local
+coverage
+playwright-report
+test-results
