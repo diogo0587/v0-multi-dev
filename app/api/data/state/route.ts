@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@prisma/client"
 
 export async function GET() {
   try {
@@ -44,12 +45,14 @@ export async function POST(request: Request) {
       activities: unknown
     }
 
-    const state = { messages, tasks, generatedFiles, activities }
+    // Garanta que apenas valores JSON-serializáveis sejam persistidos
+    const stateObj = { messages, tasks, generatedFiles, activities }
+    const safeState = JSON.parse(JSON.stringify(stateObj)) as Prisma.InputJsonValue
 
     await prisma.projectState.upsert({
       where: { userId },
-      update: { state },
-      create: { userId, state },
+      update: { state: safeState },
+      create: { userId, state: safeState },
     })
 
     return NextResponse.json({ success: true })

@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       system: systemPrompt,
       prompt: `Tarefa: ${taskDescription}\n\nAnalise esta tarefa e forneça uma resposta detalhada sobre como você a executaria, incluindo passos específicos e considerações importantes.`,
       temperature: 0.7,
-      maxTokens: 500,
+      maxOutputTokens: 500,
     })
 
     return NextResponse.json({

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       system: systemPrompt,
       prompt: `Tarefa: ${taskDescription}\n\nAnalise e retorne um plano de execução detalhado em formato JSON.`,
       temperature: 0.7,
-      maxTokens: 1000,
+      maxOutputTokens: 1000,
     })
 
     steps[0].status = "completed"
