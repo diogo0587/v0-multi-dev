@@ -23,10 +23,10 @@ export async function POST(request: Request) {
 
     const content = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
 
-    // Buffer não é parte de BodyInit no lib.dom de TS — convertendo para Blob
-    const body = new Blob([content], { type: "application/zip" })
+    // Converte Buffer para ArrayBuffer compatível com BodyInit
+    const arrayBuffer = content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength)
 
-    return new NextResponse(body, {
+    return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
