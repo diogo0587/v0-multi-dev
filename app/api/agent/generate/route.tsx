@@ -211,7 +211,7 @@ Gere o código COMPLETO e FUNCIONAL para esta tarefa.
 Retorne APENAS um JSON válido com os arquivos gerados.
 Não inclua explicações, markdown ou texto fora do JSON.`,
       temperature,
-      maxTokens: 4000,
+      maxOutputTokens: 4000,
     })
 
     console.log("[v0] AI Response:", text)

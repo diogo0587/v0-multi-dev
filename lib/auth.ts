@@ -14,7 +14,6 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
-  trustHost: true,
   providers: [
     // GitHub OAuth (opcional)
     ...(process.env.GITHUB_ID && process.env.GITHUB_SECRET

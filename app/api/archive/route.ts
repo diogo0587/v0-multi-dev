@@ -23,7 +23,14 @@ export async function POST(request: Request) {
 
     const content = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
 
-    return new NextResponse(content, {
+    // Converte Buffer para ArrayBuffer puro (sem SharedArrayBuffer no union)
+    const ab = new ArrayBuffer(content.byteLength)
+    const view = new Uint8Array(ab)
+    view.set(content)
+
+    const blob = new Blob([ab], { type: "application/zip" })
+
+    return new NextResponse(blob, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
