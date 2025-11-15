@@ -214,7 +214,7 @@ export default function AdminPage() {
           </Card>
         ) : (
           <Tabs defaultValue="settings" className="space-y-4 md:space-y-6">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-1">
               <TabsTrigger value="settings" className="gap-2">
                 <Settings className="h-4 w-4" />
                 Configurações
@@ -234,6 +234,10 @@ export default function AdminPage() {
               <TabsTrigger value="github" className="gap-2">
                 <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.112.82-.26.82-.577 0-.285-.01-1.04-.016-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.744.082-.73.082-.73 1.205.085 1.84 1.237 1.84 1.237 1.07 1.835 2.807 1.305 3.492.998.11-.775.42-1.305.763-1.606-2.665-.303-5.466-1.333-5.466-5.932 0-1.31.468-2.382 1.236-3.222-.124-.303-.536-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.51 11.51 0 0 1 3.003-.404c1.02.005 2.047.138 3.003.404 2.29-1.552 3.297-1.23 3.297-1.23.655 1.653.243 2.873.12 3.176.77.84 1.235 1.912 1.235 3.222 0 4.61-2.805 5.625-5.477 5.922.43.37.815 1.102.815 2.222 0 1.604-.014 2.894-.014 3.286 0 .32.217.694.825.576C20.565 21.8 24 17.3 24 12c0-6.63-5.373-12-12-12z"/></svg>
                 GitHub
+              </TabsTrigger>
+              <TabsTrigger value="setup" className="gap-2">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true"><path fill="currentColor" d="M12 2a1 1 0 0 1 1 1v1.07a7.002 7.002 0 0 1 4.243 11.89l.758.758a1 1 0 0 1-1.414 1.414l-.758-.758A7.002 7.002 0 0 1 4.93 9.243H3.86a1 1 0 1 1 0-2h1.07A7.002 7.002 0 0 1 12 4.07V3a1 1 0 0 1 1-1zM12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7z"/></svg>
+                Setup
               </TabsTrigger>
             </TabsList>
 
@@ -520,6 +524,79 @@ export default function AdminPage() {
                       Publicar
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="setup">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Setup Automático</CardTitle>
+                  <CardDescription>Grave as variáveis em .env.local (dev) com um clique</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="db-url">Postgres (DATABASE_URL)</Label>
+                      <Input id="db-url" placeholder="postgres://user:pass@host:5432/db?sslmode=require" className="font-mono" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="direct-url">Postgres direto (DIRECT_URL)</Label>
+                      <Input id="direct-url" placeholder="postgres://user:pass@host:5432/db?sslmode=require" className="font-mono" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nextauth-secret">NEXTAUTH_SECRET</Label>
+                      <Input id="nextauth-secret" type="password" placeholder="segredo aleatório" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-email">ADMIN_EMAIL</Label>
+                      <Input id="admin-email" type="email" placeholder="admin@exemplo.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-password">ADMIN_PASSWORD</Label>
+                      <Input id="admin-password" type="password" placeholder="Senha forte" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="vercel-hook">VERCEL_DEPLOY_HOOK_URL</Label>
+                      <Input id="vercel-hook" placeholder="https://api.vercel.com/v1/integrations/deploy/prj_xxx/yyy" className="font-mono" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        const get = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value?.trim() || ""
+                        const payload = {
+                          DATABASE_URL: get("db-url"),
+                          DIRECT_URL: get("direct-url"),
+                          NEXTAUTH_SECRET: get("nextauth-secret"),
+                          ADMIN_EMAIL: get("admin-email"),
+                          ADMIN_PASSWORD: get("admin-password"),
+                          VERCEL_DEPLOY_HOOK_URL: get("vercel-hook"),
+                        }
+                        try {
+                          const res = await fetch("/api/setup/local", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload),
+                          })
+                          const data = await res.json()
+                          if (!res.ok || !data.success) throw new Error(data.error || "Falha no setup")
+                          toast({ title: "Setup aplicado", description: "Variáveis gravadas em .env.local" })
+                        } catch (e) {
+                          toast({
+                            title: "Erro no setup",
+                            description: e instanceof Error ? e.message : "Tente novamente",
+                            variant: "destructive",
+                          })
+                        }
+                      }}
+                    >
+                      Gravar .env.local
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Nota: Em produção, configure essas variáveis nos painéis do Vercel e GitHub Secrets.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
