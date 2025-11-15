@@ -92,7 +92,7 @@
     "seed": "node prisma/seed.mjs"
   },
   "engines": {
-    "node": "latest",
+    "node": "^22",
     "npm": ">=10.0.0"
   }
 }
