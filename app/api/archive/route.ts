@@ -23,10 +23,10 @@ export async function POST(request: Request) {
 
     const content = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
 
-    // Converte Buffer para ArrayBuffer compatível com BodyInit
-    const arrayBuffer = content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength)
+    // Converte Buffer para Uint8Array (ArrayBufferView) compatível com BodyInit
+    const uint8 = new Uint8Array(content.buffer, content.byteOffset, content.byteLength)
 
-    return new NextResponse(arrayBuffer, {
+    return new NextResponse(uint8, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
