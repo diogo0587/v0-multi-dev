@@ -206,7 +206,7 @@ export default function AdminPage() {
               <CardDescription>Faça login para acessar a área administrativa.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
-              <Link href="/api/auth/signin?callbackUrl=/admin">
+              <Link href="/auth/signin">
                 <Button>Entrar</Button>
               </Link>
               <p className="text-sm text-muted-foreground">
